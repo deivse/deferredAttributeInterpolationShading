@@ -8,6 +8,11 @@
 #ifndef __CUBE_MODEL_H__
 #define __CUBE_MODEL_H__
 
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+
+using namespace gl;
+
 namespace Tools {
     namespace Mesh {
         const GLfloat CUBE_VERTEX_ARRAY[] = {
@@ -145,7 +150,7 @@ namespace Tools {
             // Lazy initialization of VBO with cube polygon mesh
             GLuint vbo = 0;
             glCreateBuffers(1, &vbo);
-            glNamedBufferStorage(vbo, sizeof(Mesh::CUBE_VERTEX_ARRAY), Mesh::CUBE_VERTEX_ARRAY, GL_NONE);
+            glNamedBufferStorage(vbo, sizeof(Mesh::CUBE_VERTEX_ARRAY), Mesh::CUBE_VERTEX_ARRAY, BufferStorageMask::GL_NONE_BIT);
 
             glCreateVertexArrays(1, &s_vao);
             glBindVertexArray(s_vao);

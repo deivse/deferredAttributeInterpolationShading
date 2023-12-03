@@ -7,6 +7,11 @@
 #ifndef __ELEPHANT_MODEL_H__
 #define __ELEPHANT_MODEL_H__
 
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+
+using namespace gl;
+
 namespace Tools {
     namespace Mesh {
         const int NUM_ELEPHANT_TRIANGLES =  2518;
@@ -23926,7 +23931,7 @@ namespace Tools {
             // Lazy initialization of VBO with elephant polygon mesh
             GLuint vbo = 0;
             glCreateBuffers(1, &vbo);
-            glNamedBufferStorage(vbo, sizeof(Mesh::ELEPHANT_VERTEX_AND_NORMAL_ARRAY_4D_STREAM), Mesh::ELEPHANT_VERTEX_AND_NORMAL_ARRAY_4D_STREAM, GL_NONE);
+            glNamedBufferStorage(vbo, sizeof(Mesh::ELEPHANT_VERTEX_AND_NORMAL_ARRAY_4D_STREAM), Mesh::ELEPHANT_VERTEX_AND_NORMAL_ARRAY_4D_STREAM, BufferStorageMask::GL_NONE_BIT);
 
             glCreateVertexArrays(1, &s_vao);
             glBindVertexArray(s_vao);

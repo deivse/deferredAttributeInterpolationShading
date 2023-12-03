@@ -71,13 +71,13 @@ int main() {
          GLFW_CONTEXT_VERSION_MINOR,
          5,
          GLFW_OPENGL_FORWARD_COMPAT,
-         GL_FALSE,
+         GL_FALSE.m_value,
          GLFW_OPENGL_DEBUG_CONTEXT,
-         GL_TRUE,
+         GL_TRUE.m_value,
          GLFW_OPENGL_PROFILE,
          GLFW_OPENGL_COMPAT_PROFILE, // GLFW_OPENGL_CORE_PROFILE
          PGR2_SHOW_MEMORY_STATISTICS,
-         GL_TRUE,
+         GL_TRUE.m_value,
          0};
 
     printf("%s\n", help_message);

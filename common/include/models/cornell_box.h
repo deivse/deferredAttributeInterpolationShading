@@ -1,6 +1,11 @@
 /*
  * Cornell Box scene.
  */
+#pragma once
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+
+using namespace gl;
 namespace Tools {
     namespace Mesh {
         static const GLfloat CORNELL_BOX[] = {
@@ -125,7 +130,7 @@ namespace Tools {
             // Lazy initialization of VBO with cornel box mesh
             GLuint vbo = 0;
             glCreateBuffers(1, &vbo);
-            glNamedBufferStorage(vbo, sizeof(Mesh::CORNELL_BOX), Mesh::CORNELL_BOX, GL_NONE);
+            glNamedBufferStorage(vbo, sizeof(Mesh::CORNELL_BOX), Mesh::CORNELL_BOX, BufferStorageMask::GL_NONE_BIT);
             glCreateVertexArrays(1, &s_vao);
             glVertexArrayVertexBuffer(s_vao, 0, vbo, 0, 12 * sizeof(float));
             glVertexArrayAttribFormat(s_vao, 0, 4, GL_FLOAT, GL_FALSE, 0);

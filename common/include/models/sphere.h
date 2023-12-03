@@ -8,8 +8,6 @@
 #ifndef __SPHERE_MODEL_H__
 #define __SPHERE_MODEL_H__
 
-#include <GL/glew.h>
-
 namespace Tools {
 //-----------------------------------------------------------------------------
 // Name: DrawSphere()

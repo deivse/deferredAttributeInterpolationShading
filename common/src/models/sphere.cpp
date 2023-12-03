@@ -6,8 +6,10 @@
 //-----------------------------------------------------------------------------
 
 #include <models/sphere.h>
-#include <GL/glew.h>
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
 
+using namespace gl;
 namespace Tools {
     namespace Mesh {
         static const GLfloat SPHERE[] = {
@@ -4586,7 +4588,7 @@ namespace Tools {
             // Lazy initialization of VBO with sphere polygon mesh
             GLuint vbo = 0;
             glCreateBuffers(1, &vbo);
-            glNamedBufferStorage(vbo, sizeof(Mesh::SPHERE), Mesh::SPHERE, GL_NONE);
+            glNamedBufferStorage(vbo, sizeof(Mesh::SPHERE), Mesh::SPHERE, BufferStorageMask::GL_NONE_BIT);
 
             glCreateVertexArrays(1, &s_vao);
             glBindVertexArray(s_vao);

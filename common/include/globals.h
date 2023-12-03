@@ -9,6 +9,10 @@
 
 #include "camera.h"
 
+#include <glbinding/gl/gl.h>
+
+using namespace gl;
+
 // INTERNAL VARIABLES DEFINITIONS______________________________________________
 namespace Variables {
 GLFWwindow* Window = nullptr;

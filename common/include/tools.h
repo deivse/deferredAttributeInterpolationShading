@@ -20,19 +20,18 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
-#include <GL/glew.h>
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+
 #include <GLFW/glfw3.h>
 #include <glm/gtx/integer.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/exponential.hpp>
 
 #include "defines.h"
-#include "models/scene_miro.h"
 #include "globals.h"
 
-// MISSING OPENGL ENUMS________________________________________________________
-#define GL_MESH_SHADER_NV                                      0x9559
-#define GL_TASK_SHADER_NV                                      0x955A
+using namespace gl;
 
 namespace Statistic {
     float FPS = 0.0f;               // Current FPS
@@ -103,7 +102,7 @@ namespace Tools {
     // Name: BufferRelease
     // Desc: 
     //-----------------------------------------------------------------------------
-    template <int target, int query>
+    template <GLenum target, GLenum query>
     class BufferRelease {
     public:
         BufferRelease() {
@@ -326,7 +325,7 @@ namespace Tools {
 
 
     // Very simple GL query wrapper
-    template <int TYPE>
+    template <GLenum TYPE>
     class GPUQuery {
     public:
         GPUQuery() : query(0), result(0), resultTotal(0), counter(0) {}
@@ -903,10 +902,10 @@ namespace Tools {
         // Name: CheckShaderCompileStatus()
         // Desc: 
         //-----------------------------------------------------------------------------
-        GLint CheckShaderCompileStatus(GLuint shader_id) {
-            GLint status = GL_FALSE;
+        GLboolean CheckShaderCompileStatus(GLuint shader_id) {
+            GLint status = GL_FALSE.m_value;
             glGetShaderiv(shader_id, GL_COMPILE_STATUS, &status);
-            return status;
+            return static_cast<GLboolean>(status);
         }
 
 
@@ -915,7 +914,7 @@ namespace Tools {
         // Desc: 
         //-----------------------------------------------------------------------------
         GLint CheckProgramLinkStatus(GLuint program_id) {
-            GLint status = GL_FALSE;
+            GLint status = GL_FALSE.m_value;
             glGetProgramiv(program_id, GL_LINK_STATUS, &status);
             return status;
         }
@@ -1285,9 +1284,9 @@ namespace Tools {
             };
 
             // Get texture properties
-            GLint numSamples = 1;
-            GLint format = GL_RGBA8;
-            GLint compMode = GL_NONE;
+            GLint numSamples = 0;
+            GLint format = 0;
+            GLint compMode = 0;
             glGetTextureLevelParameteriv(texID, 0, GL_TEXTURE_SAMPLES, &numSamples);
             glGetTextureLevelParameteriv(texID, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
             glGetTextureParameteriv(texID, GL_TEXTURE_COMPARE_MODE, &compMode);
@@ -1562,9 +1561,9 @@ namespace Tools {
             };
 
             // Get texture properties
-            GLint numSamples = 1;
-            GLint format     = GL_NONE;
-            GLint compMode   = GL_NONE;
+            GLint numSamples = 0;
+            GLint format     = 0;
+            GLint compMode   = 0;
             glGetTextureLevelParameteriv(texID, 0, GL_TEXTURE_SAMPLES, &numSamples);
             glGetTextureLevelParameteriv(texID, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
             GLenum target = (numSamples == 0) ? GL_TEXTURE_2D : GL_TEXTURE_2D_MULTISAMPLE;
@@ -1703,7 +1702,7 @@ namespace Tools {
             const GLubyte color_shift[10][3] = { {0, 6, 6}, {0, 0, 6}, {6, 0, 6}, {6, 0, 0}, {6, 6, 0}, {0, 6, 0}, {3, 3, 3}, {6, 6, 6}, {3, 6, 3}, {6, 3, 3} };
             const int MAX_COLOR_LEVELS = sizeof(color_shift) / sizeof(color_shift[0]);
 
-            for (int level = 0; level < max_level; level++) {
+            for (GLint level = 0; level < max_level; level++) {
                 glGetTextureLevelParameteriv(texture_id, level, GL_TEXTURE_WIDTH, &width);
                 glGetTextureLevelParameteriv(texture_id, level, GL_TEXTURE_HEIGHT, &height);
                 glGetTextureImage(texture_id, level, GL_RGBA, GL_UNSIGNED_BYTE, width * height * 4 * sizeof(GLubyte), &texels[0]);
@@ -1814,7 +1813,7 @@ namespace Tools {
         // Name: Create()
         // Desc: 
         //-----------------------------------------------------------------------------
-        void Create(GLuint& buffer, GLsizeiptr size, GLbitfield usage, GLenum target, GLuint index, const void* data = nullptr) {
+        void Create(GLuint& buffer, GLsizeiptr size, BufferStorageMask usage, GLenum target, GLuint index, const void* data = nullptr) {
             glDeleteBuffers(1, &buffer);
             glCreateBuffers(1, &buffer);
             glNamedBufferStorage(buffer, size, data, usage);

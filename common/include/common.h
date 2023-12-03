@@ -10,13 +10,8 @@
 #include <cassert>
 #include <chrono>
 
-#include <GL/glew.h>
-#ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS
-#include <GL/wglew.h>
-#else
-#include <GL/glxew.h>
-#endif
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -32,6 +27,8 @@
 #include "defines.h"
 #include "globals.h"
 #include "tools.h"
+
+using namespace gl;
 
 // INTERNAL USER CALLBACK FUNCTION POINTERS____________________________________
 namespace Callbacks {
@@ -690,18 +687,18 @@ int common_main(int window_width, int window_height, const char* window_title,
 
         switch (hint) {
             case PGR2_SHOW_MEMORY_STATISTICS:
-                Variables::ShowMemStat = (value == GL_TRUE);
+                Variables::ShowMemStat = (value == 1);
                 break;
             case PGR2_DISABLE_VSYNC:
-                bDisableVSync = (value == GL_TRUE);
+                bDisableVSync = (value == 1);
                 break;
             case PGR2_DISABLE_BUFFER_SWAP:
-                bAutoSwapDisabled = (value == GL_TRUE);
+                bAutoSwapDisabled = (value == 1);
                 break;
             default:
                 glfwWindowHint(hint, value);
                 if (hint == GLFW_OPENGL_DEBUG_CONTEXT)
-                    Variables::Debug = (value == GL_TRUE);
+                    Variables::Debug = (value == 1);
                 if ((hint == GLFW_CONTEXT_VERSION_MAJOR) && (value < 4)) {
                     fprintf(stderr,
                             "Error: OpenGL version must be 4 or higher\n");
@@ -731,11 +728,7 @@ int common_main(int window_width, int window_height, const char* window_title,
                              Callbacks::MousePositionChanged);
     glfwSetKeyCallback(Variables::Window, Callbacks::KeyboardChanged);
 
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        fprintf(stderr, "GLEW error: %s\n", glewGetErrorString(err));
-        return 4;
-    }
+    glbinding::initialize(glfwGetProcAddress);
 
     // Print debug info
     (void)fprintf(

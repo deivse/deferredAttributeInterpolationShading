@@ -14,7 +14,7 @@ class PGR2Conan(ConanFile):
         "imgui/1.90",
         "implot/0.16",
         "glfw/3.3.8",
-        "glew/2.2.0",
+        "glbinding/3.1.0",
         "stb/cci.20230920",
     ]
 
