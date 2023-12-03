@@ -28,21 +28,13 @@ void init() {
 }
 
 constexpr const char* help_message = "no help here";
-//-----------------------------------------------------------------------------
-// Name: compileShaders()
-// Desc:
-//-----------------------------------------------------------------------------
+
 void compileShaders(void* clientData) {
     // Create shader program object
-    Tools::Shader::CreateShaderProgramFromFile(g_Program, "shader.vert",
-                                               nullptr, nullptr, nullptr,
-                                               "shader.frag");
+    Tools::Shader::CreateShaderProgramFromFile(
+      g_Program, "shader.vert", nullptr, nullptr, nullptr, "shader.frag");
 }
 
-//-----------------------------------------------------------------------------
-// Name: showGUI()
-// Desc:
-//-----------------------------------------------------------------------------
 int showGUI() {
     const int menuHeight = 55;
 
@@ -63,6 +55,8 @@ void keyboardChanged(int key, int action, int mods) {
         case GLFW_KEY_W:
             g_WireMode = !g_WireMode;
             break;
+        default:
+            break;
     }
 }
 
@@ -70,8 +64,8 @@ void keyboardChanged(int key, int action, int mods) {
 // Name: main()
 // Desc:
 //-----------------------------------------------------------------------------
-int main(int argc, char* argv[]) {
-    int OGL_CONFIGURATION[]
+int main() {
+    constexpr int OGL_CONFIGURATION[]
       = {GLFW_CONTEXT_VERSION_MAJOR,
          4,
          GLFW_CONTEXT_VERSION_MINOR,
@@ -89,7 +83,7 @@ int main(int argc, char* argv[]) {
     printf("%s\n", help_message);
 
     return common_main(1200, 900, "[PGR2] Cornell Box",
-                       OGL_CONFIGURATION, // OGL configuration hints
+                       static_cast<const int*>(OGL_CONFIGURATION), // OGL configuration hints
                        init,              // Init GL callback function
                        nullptr,           // Release GL callback function
                        showGUI,           // Show GUI callback function

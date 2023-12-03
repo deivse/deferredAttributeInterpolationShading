@@ -653,7 +653,7 @@ void ShowMagnifier() {
 // Desc:
 //-----------------------------------------------------------------------------
 int common_main(int window_width, int window_height, const char* window_title,
-                int* opengl_config, TInitGLCallback cbUserInitGL,
+                const int* opengl_config, TInitGLCallback cbUserInitGL,
                 TReleaseOpenGLCallback cbUserReleaseGL, TShowGUICallback cbGUI,
                 TDisplayCallback cbUserDisplay,
                 TWindowSizeChangedCallback cbUserWindowSizeChanged,
@@ -683,7 +683,7 @@ int common_main(int window_width, int window_height, const char* window_title,
     glfwSetErrorCallback(Callbacks::glfwError);
     if (!glfwInit()) return 1;
 
-    int* pConfig = opengl_config;
+    const int* pConfig = opengl_config;
     while (*pConfig != 0) {
         const int hint = *pConfig++;
         const int value = *pConfig++;
