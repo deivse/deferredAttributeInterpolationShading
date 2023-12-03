@@ -43,8 +43,8 @@ namespace Tools {
 
         void rotateView(float angle, const glm::vec3& axis) {
             glm::vec3 const currentView = Center - Position;
-            float const     cosTheta = glm::cos(angle);
-            float const     sinTheta = glm::sin(angle);
+            float const cosTheta = glm::cos(glm::radians(angle));
+            float const sinTheta = glm::sin(glm::radians(angle));
 
             glm::vec3 newView;
             // x-coordinate of newView

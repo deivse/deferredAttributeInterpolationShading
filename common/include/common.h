@@ -90,7 +90,6 @@ namespace GUI {
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
-        ImGui::GetIO().DisplaySize = glm::vec2(Variables::WindowSize);
         ImGui::NewFrame();
 
         ImGui::GetStyle().Alpha = 0.80f;
@@ -306,6 +305,7 @@ void WindowSizeChanged(GLFWwindow* window, int width, int height) {
 
     glViewport(0, 0, width, height);
     glm::ivec2 newWindowSize = glm::ivec2(width, height);
+    ImGui::GetIO().DisplaySize = glm::vec2(Variables::WindowSize);
 
     if (User::WindowSizeChanged) User::WindowSizeChanged(newWindowSize);
 
@@ -460,7 +460,7 @@ void MouseButtonChanged(GLFWwindow* window, int button, int action, int mods) {
 // Desc: internal
 //-----------------------------------------------------------------------------
 void MousePositionChanged(GLFWwindow* window, double x, double y) {
-    static const float SceneMovementSensitivity = 0.2f;
+    constexpr float SceneMovementSensitivity = 0.02f;
 
     const bool leftMouse
       = Variables::MouseLeftPressed && !ImGui::GetIO().MouseDownOwned[0];

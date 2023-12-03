@@ -78,7 +78,7 @@ struct Transformation
         View = Camera.GetViewMatrix();
         ModelView = View * Model;
         ModelViewInverse = glm::inverse(ModelView);
-        Projection = glm::perspective(60.0f, float(WindowSize.x) / WindowSize.y,
+        Projection = glm::perspective(glm::radians(60.0f), float(WindowSize.x) / WindowSize.y,
                                       0.1f, 1000.0f);
         ModelViewProjection = Projection * ModelView;
         Normal = glm::inverseTranspose(glm::mat3(ModelView));
