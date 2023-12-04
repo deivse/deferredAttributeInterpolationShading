@@ -34,7 +34,7 @@ add_library(libcommon STATIC ${COMMON_SRC} ${IMGUI_BINDINGS_SRC})
 target_include_directories(libcommon PUBLIC ${IMGUI_BINDINGS_DIR})
 
 target_include_directories(libcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(libcommon PUBLIC glm::glm imgui::imgui implot::implot glfw glbinding::glbinding stb::stb)
+target_link_libraries(libcommon PUBLIC glm::glm imgui::imgui implot::implot glfw glbinding::glbinding glbinding::glbinding-aux stb::stb)
 target_compile_definitions(libcommon PUBLIC RESOURCE_DIRECTORY="${RESOURCE_DIRECTORY}/"  GLFW_INCLUDE_NONE=1)
 
 if(MSVC)

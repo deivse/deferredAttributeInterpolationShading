@@ -6,6 +6,7 @@
 #include <glbinding/glbinding.h>
 
 using namespace gl;
+
 namespace Tools {
     namespace Mesh {
         static const GLfloat CORNELL_BOX[] = {
@@ -132,13 +133,17 @@ namespace Tools {
             glCreateBuffers(1, &vbo);
             glNamedBufferStorage(vbo, sizeof(Mesh::CORNELL_BOX), Mesh::CORNELL_BOX, BufferStorageMask::GL_NONE_BIT);
             glCreateVertexArrays(1, &s_vao);
+
             glVertexArrayVertexBuffer(s_vao, 0, vbo, 0, 12 * sizeof(float));
+
             glVertexArrayAttribFormat(s_vao, 0, 4, GL_FLOAT, GL_FALSE, 0);
             glVertexArrayAttribBinding(s_vao, 0, 0);
             glEnableVertexArrayAttrib(s_vao, 0);
+
             glVertexArrayAttribFormat(s_vao, 1, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float));
             glVertexArrayAttribBinding(s_vao, 1, 0);
             glEnableVertexArrayAttrib(s_vao, 1);
+
             glVertexArrayAttribFormat(s_vao, 2, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float));
             glVertexArrayAttribBinding(s_vao, 2, 0);
             glEnableVertexArrayAttrib(s_vao, 2);

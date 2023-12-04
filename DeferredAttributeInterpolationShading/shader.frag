@@ -4,6 +4,7 @@
 #endif
 
 layout (location = 0) out vec4 FragColor;
+layout (location = 1) out vec4 SecondColorTex;
 
 uniform int   u_VariableInt;
 uniform float u_VariableFloat;
@@ -23,4 +24,5 @@ void main(void) {
     // Compute fragment color
     float NdotL = max(0.0, dot(normalize(lightViewPos.xyz - position.xyz), normalize(normal)));
     FragColor  = vec4(color.rgb * NdotL, color.a);
+    SecondColorTex = vec4(vec3(NdotL), 1);;
 }
