@@ -36,14 +36,17 @@ GLuint createGBuffer() {
 }
 
 void display() {
+    Tools::GPUVSInvocationQuery query{};
     glUseProgram(g_Program);
 
     glBindFramebuffer(GL_FRAMEBUFFER, g_GBufferFBO);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    query.start();
     glPolygonMode(GL_FRONT_AND_BACK, g_WireMode ? GL_LINE : GL_FILL);
     Tools::DrawCornellBox();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    query.get();
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -52,6 +55,7 @@ void display() {
 }
 
 void init() {
+    
     // Default scene distance
     Variables::Transform.SceneZOffset = 3.0f;
 

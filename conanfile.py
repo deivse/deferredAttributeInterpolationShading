@@ -16,6 +16,7 @@ class PGR2Conan(ConanFile):
         "glfw/3.3.8",
         "glbinding/3.1.0",
         "stb/cci.20230920",
+        "spdlog/1.12.0",
     ]
 
     cmake_generator = "Ninja Multi-Config"

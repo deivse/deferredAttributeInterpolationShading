@@ -21,6 +21,7 @@
 #include <stb_image_write.h>
 
 #include <glbinding/gl/gl.h>
+#include <glbinding/gl/extension.h>
 #include <glbinding/glbinding.h>
 
 #include <GLFW/glfw3.h>
@@ -382,8 +383,8 @@ namespace Tools {
         GLuint64 resultTotal;
         GLuint   counter;
     };
-    typedef GPUQuery<GL_VERTEX_SHADER_INVOCATIONS>   GPUVSInvocationQuery;
-    typedef GPUQuery<GL_FRAGMENT_SHADER_INVOCATIONS> GPUFSInvocationQuery;
+    typedef GPUQuery<GLenum::GL_VERTEX_SHADER_INVOCATIONS_ARB>   GPUVSInvocationQuery;
+    typedef GPUQuery<GLenum::GL_FRAGMENT_SHADER_INVOCATIONS_ARB> GPUFSInvocationQuery;
 
 
     //-----------------------------------------------------------------------------
