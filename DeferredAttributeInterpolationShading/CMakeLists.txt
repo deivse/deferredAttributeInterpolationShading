@@ -22,6 +22,11 @@ endif()
 # Add executables
 #
 add_executable(${TARGET_NAME} ${SOURCE_FILES} ${SHADER_FILES})
+
+add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${SHADER_FILES} $<TARGET_FILE_DIR:${TARGET_NAME}>
+)
+
 _add_target_definitions(${TARGET_NAME})
 
 # ####################################################################################
