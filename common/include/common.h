@@ -28,6 +28,10 @@
 #include "globals.h"
 #include "tools.h"
 
+#include <stb_image.h>
+#include <stb_image_write.h>
+
+
 using namespace gl;
 
 // INTERNAL USER CALLBACK FUNCTION POINTERS____________________________________
