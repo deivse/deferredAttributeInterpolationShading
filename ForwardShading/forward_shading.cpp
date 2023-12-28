@@ -17,6 +17,7 @@
 //-----------------------------------------------------------------------------
 
 #include "common.h"
+#include <algorithm>
 #include <map>
 #include "glbinding-aux/Meta.h"
 #include <spdlog/spdlog.h>
@@ -35,13 +36,13 @@ struct RenderPass
     using renderPassFn
       = std::function<void(void)>; // Render function declaration
 
-    std::string name;                 // Renderpass name
-    const bool* controller = nullptr; // Renderpass controller (optional)
-    std::string shaderFile; // Shader file name (without file extensions 'vert',
-                            // 'frag' or 'geom')
-    GLuint program = 0;     // Shader program ID
-    renderPassFn render;    // Render function
-    Tools::GPUTimer timer;  // GPU timer
+    std::string name;               // Renderpass name
+    const bool* enabled = nullptr;  // Renderpass controller (optional)
+    std::string shaderFilenameBase; // Shader file name (without file extensions
+                                    // 'vert', 'frag' or 'geom')
+    GLuint program = 0;             // Shader program ID
+    renderPassFn render;            // Render function
+    Tools::GPUTimer timer;          // GPU timer
     // VSInvocationCounter
     //   vertexShaderCounter; // GPU vertex shader execution counter
     // FSInvocationCounter
@@ -50,23 +51,24 @@ struct RenderPass
     // Constructors
     RenderPass(const std::string& _name, const char* _shaderFile,
                renderPassFn _render)
-      : name(_name), controller(nullptr),
-        shaderFile(_shaderFile ? _shaderFile : ""), render(_render) {}
+      : name(_name), enabled(nullptr),
+        shaderFilenameBase(_shaderFile ? _shaderFile : ""), render(_render) {}
     RenderPass(const std::string& _name, renderPassFn _render)
-      : name(_name), controller(nullptr), shaderFile(""), render(_render) {}
+      : name(_name), enabled(nullptr), shaderFilenameBase(""), render(_render) {
+    }
     RenderPass(const std::string& _name, const char* _shaderFile,
                const bool& _controller, renderPassFn _render)
-      : name(_name), controller(&_controller),
-        shaderFile(_shaderFile ? _shaderFile : ""), render(_render) {}
+      : name(_name), enabled(&_controller),
+        shaderFilenameBase(_shaderFile ? _shaderFile : ""), render(_render) {}
     RenderPass(const std::string& _name, const bool& _controller,
                renderPassFn _render)
-      : name(_name), controller(&_controller), shaderFile(""), render(_render) {
-    }
+      : name(_name), enabled(&_controller), shaderFilenameBase(""),
+        render(_render) {}
 
     // Starts render pass including lazy initialization and performance
     // measurements
     void run(Algorithm& algorithm, bool forceSync = false) {
-        if (controller && (controller[0] == false)) return;
+        if (enabled && (enabled[0] == false)) return;
 
         // vertexShaderCounter.start();
         // fragmentShaderCounter.start();
@@ -82,7 +84,7 @@ struct RenderPass
 
     bool compile(const OptionsMap& options) {
         reset();
-        if (shaderFile.empty()) return true;
+        if (shaderFilenameBase.empty()) return true;
 
         // Create list of GLSL defines for enabled options
         std::string preprocessor;
@@ -96,14 +98,15 @@ struct RenderPass
 
         // Try to compile VS+GS+FS at first...
         bool result = Tools::Shader::CreateShaderProgramFromFile(
-          program, (shaderFile + ".vert").c_str(), nullptr, nullptr,
-          (shaderFile + ".geom").c_str(), (shaderFile + ".frag").c_str(),
+          program, (shaderFilenameBase + ".vert").c_str(), nullptr, nullptr,
+          (shaderFilenameBase + ".geom").c_str(),
+          (shaderFilenameBase + ".frag").c_str(),
           preprocessor.empty() ? nullptr : preprocessor.c_str());
         // If compilation failed, try VS+FS only.
         if (!result)
             result = Tools::Shader::CreateShaderProgramFromFile(
-              program, (shaderFile + ".vert").c_str(), nullptr, nullptr,
-              nullptr, (shaderFile + ".frag").c_str(),
+              program, (shaderFilenameBase + ".vert").c_str(), nullptr, nullptr,
+              nullptr, (shaderFilenameBase + ".frag").c_str(),
               preprocessor.empty() ? nullptr : preprocessor.c_str());
 
         // Explicit sync. for better time measurement
@@ -111,7 +114,7 @@ struct RenderPass
         return result;
     }
 
-    bool isEnabled() const { return !controller || (controller[0]); }
+    bool isEnabled() const { return !enabled || (enabled[0]); }
 }; // end of struct RenderPass
 
 struct Algorithm
@@ -127,24 +130,23 @@ struct Algorithm
     Algorithm(const std::string& _name) : name(_name) {}
 
     // Initializes the algorithm
-    virtual void
-      setup(){
-        /*
-        // Add options
-            options["WireModel"] = true;
+    virtual void setup(){
+      /*
+      // Add options
+          options["WireModel"] = true;
 
-        // Add rendering passes
-            renderPasses.emplace_back("lighting pass", "lighting", [&]() -> void
-        { glClear(GL_COLOR_BUFFER_BIT); if (options["WireModel"])
-                    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
-            });
-            renderPasses.emplace_back("read pass", nullptr,
-        options["ReadColors"], [&]() -> void { GLubyte pixels[100 * 100 * 4] =
-        {}; glReadPixels(0, 0, 100, 100, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-            });
-        */
-      };
+      // Add rendering passes
+          renderPasses.emplace_back("lighting pass", "lighting", [&]() -> void
+      { glClear(GL_COLOR_BUFFER_BIT); if (options["WireModel"])
+                  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+              glDrawArrays(GL_TRIANGLES, 0, 3);
+          });
+          renderPasses.emplace_back("read pass", nullptr,
+      options["ReadColors"], [&]() -> void { GLubyte pixels[100 * 100 * 4] =
+      {}; glReadPixels(0, 0, 100, 100, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+          });
+      */
+    };
 
     // Displays algorithm debug informations. This method is called at the end
     // of Algorithm::run().
@@ -375,7 +377,9 @@ void init() {
     GLint n = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &n);
     for (GLint i = 0; i < n; i++) {
-        spdlog::info("Supported extension {}", reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i)));
+        spdlog::info(
+          "Supported extension {}",
+          reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i)));
     }
 
     // spdlog::info("Pipeline stat query status: {}", glbinding::aux::Meta::;
