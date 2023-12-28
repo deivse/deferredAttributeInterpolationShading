@@ -25,13 +25,16 @@ else(UNIX)
     )
 endif(UNIX)
 
-FILE(GLOB_RECURSE COMMON_SRC src/*.rc src/*.cpp src/*/*.cpp include/*.h include/*/*.h)
+FILE(GLOB_RECURSE COMMON_SRC src/*.cpp src/*/*.cpp include/*.h include/*/*.h)
+
+set(PGR2_APP_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/pgr2.ico)
+configure_file(src/resources.rc.in resources.rc @ONLY)
 
 set(IMGUI_BINDINGS_DIR ${CMAKE_SOURCE_DIR}/third-party/imgui/bindings)
 set(IMGUI_BINDINGS_SRC ${IMGUI_BINDINGS_DIR}/imgui_impl_glfw.cpp
     ${IMGUI_BINDINGS_DIR}/imgui_impl_opengl3.cpp)
 
-add_library(libcommon STATIC ${COMMON_SRC} ${IMGUI_BINDINGS_SRC})
+add_library(libcommon STATIC ${CMAKE_CURRENT_BINARY_DIR}/resources.rc ${COMMON_SRC} ${IMGUI_BINDINGS_SRC})
 target_include_directories(libcommon PUBLIC ${IMGUI_BINDINGS_DIR})
 
 target_include_directories(libcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

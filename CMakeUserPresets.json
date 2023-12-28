@@ -4,6 +4,6 @@
         "conan": {}
     },
     "include": [
-        "/home/deivse/Documents/uni/ing/sem1/pgr2/sem/build/generators/CMakePresets.json"
+        "C:\\Users\\deivs\\Repos\\deferredAttributeInterpolationShading\\build\\generators\\CMakePresets.json"
     ]
 }
