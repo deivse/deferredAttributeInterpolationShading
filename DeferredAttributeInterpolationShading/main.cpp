@@ -1,164 +1,25 @@
 #include "common.h"
-#include "models/cornell_box.h"
+#include "algorithms/deferred_shading.h"
+#include "scene.h"
+#include <variant>
 
-// GLOBAL VARIABLES____________________________________________________________
-bool g_WireMode = false; // Wire mode enabled/disabled
-GLuint g_Program = 0;    // Shader program ID
-GLuint g_GBufferFBO = 0;
-std::array<GLuint, 4> colorTextures{};
+using AlgorithmVariant = std::variant<std::unique_ptr<Algorithms::DefferedShading>>;
+AlgorithmVariant g_AlgorithmP{std::make_unique<Algorithms::DefferedShading>()};
 
-GLuint createGBuffer() {
-    std::array colorAttachments{GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
-                                GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-
-    GLuint depthStencilTex{};
-    Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,
-                             Variables::WindowSize);
-
-    // TODO: make this shit sane, add a class, remove global state
-
-    for (auto& texture : colorTextures) {
-        Tools::Texture::Create2D(texture, gl::GLenum::GL_RGBA8,
-                                 Variables::WindowSize);
-    }
-
-    GLuint fbo{};
-    // Create a framebuffer object ...
-    glCreateFramebuffers(1, &fbo);
-    glNamedFramebufferDrawBuffers(fbo, colorAttachments.size(),
-                                  colorAttachments.data());
-
-    // and attach color and depth textures
-    for (size_t i = 0; i < colorAttachments.size(); i++) {
-        glNamedFramebufferTexture(fbo, colorAttachments[i], colorTextures[i],
-                                  0);
-    }
-    glNamedFramebufferTexture(fbo, gl::GLenum::GL_DEPTH_STENCIL_ATTACHMENT,
-                              depthStencilTex, 0);
-
-    assert(glGetError() == GL_NO_ERROR);
-    assert(glCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER)
-           == GL_FRAMEBUFFER_COMPLETE);
-    return fbo;
-}
-
-std::vector<glm::vec3> createSphereGeometry(float radius, int slices) {
-    std::vector<glm::vec3> vertices;
-    Tools::Mesh::CreateSphereVertexMesh(vertices, radius, slices, slices);
-    for (int i = 1; i < vertices.size(); i += 3)
-        std::swap(vertices[i], vertices[i + 1]); // TODO: fix CW order bug
-    return vertices;
-}
-
-void renderScene() {
-    static GLuint vertexArray = 0;
-    static GLuint vertexBuffer = 0;
-    static GLuint attribBuffer = 0;
-    static GLsizei numSlices = 0;
-    static std::vector<glm::vec3> spherePositions;
-    static std::vector<glm::vec3> sphereVertices;
-    int g_NumSpheresPerRow = 20;
-    int g_NumSphereSlices = 10;
-
-    // Create texture for scene
-    static GLuint texture
-      = Tools::Texture::CreateFromFile("../common/textures/metal01.jpg");
-
-    // Calculate sphere positions
-    const size_t numSpheres
-      = g_NumSpheresPerRow * g_NumSpheresPerRow * g_NumSpheresPerRow;
-    if (numSpheres != spherePositions.size()) {
-        spherePositions.clear();
-        for (int i = 0; i < numSpheres; i++) {
-            const int x = i % g_NumSpheresPerRow;
-            const int y = i / g_NumSpheresPerRow % g_NumSpheresPerRow;
-            const int z = i / (g_NumSpheresPerRow * g_NumSpheresPerRow)
-                          % g_NumSpheresPerRow;
-            spherePositions.push_back(
-              glm::vec3(x, y, z) - glm::vec3((g_NumSpheresPerRow - 1) * 0.5f));
-        }
-
-        // glDeleteBuffers(1, &attribBuffer);
-        // glCreateBuffers(1, &attribBuffer);
-        // glNamedBufferStorage(attribBuffer, spherePositions.size() *
-        // sizeof(glm::vec3), &spherePositions[0].x, GL_NONE);
-    }
-
-    if ((vertexArray == 0) || (numSlices != g_NumSphereSlices)) {
-        numSlices = g_NumSphereSlices;
-        glDeleteVertexArrays(1, &vertexArray);
-        glDeleteBuffers(1, &vertexBuffer);
-
-        // Create vertex buffer
-        sphereVertices = createSphereGeometry(0.5f, g_NumSphereSlices);
-        glCreateBuffers(1, &vertexBuffer);
-        glNamedBufferStorage(
-          vertexBuffer, sphereVertices.size() * sizeof(glm::vec3),
-          &sphereVertices[0].x, gl::BufferStorageMask::GL_NONE_BIT);
-        // Create vertex array
-        glCreateVertexArrays(1, &vertexArray);
-        glVertexArrayVertexBuffer(vertexArray, 0, vertexBuffer, 0,
-                                  sizeof(glm::vec3));
-        glVertexArrayAttribBinding(vertexArray, 0, 0);
-        glVertexArrayAttribFormat(vertexArray, 0, 3, GL_FLOAT, GL_FALSE, 0);
-        glEnableVertexArrayAttrib(vertexArray, 0);
-    }
-
-    glBindTextureUnit(0, texture);
-    // glUniform1i(0, g_NumSpheresPerRow);
-    glBindVertexArray(vertexArray);
-    // TODO: Use instance rendering
-    for (auto& position : spherePositions) {
-        // glUniform3fv(3, 1, &position.x);
-        glDrawArrays(GL_TRIANGLES, 0,
-                     static_cast<GLsizei>(sphereVertices.size()));
-    }
-    glBindVertexArray(0);
-}
+bool g_ShowLights = true;         // Render lights
+bool g_ShowLightRange = false;    // Render lights' ranges
+bool g_ExplicitTimerSync = false; // Explicit synchronization will be made
+                                  // before any performance measurement
 
 void display() {
-    Tools::GPUVSInvocationQuery
-      vertexShaderCounter; // GPU vertex shader execution counter
-    Tools::GPUFSInvocationQuery
-      fragmentShaderCounter; // GPU fragment shader execution counter
-    glUseProgram(g_Program);
-
-    vertexShaderCounter.start();
-    fragmentShaderCounter.start();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, g_GBufferFBO);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glPolygonMode(GL_FRONT_AND_BACK, g_WireMode ? GL_LINE : GL_FILL);
-    Tools::DrawCornellBox();
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    Tools::Texture::Show2D(colorTextures[0], Variables::WindowSize.x / 2, 0,
-                           Variables::WindowSize.x / 2,
-                           Variables::WindowSize.y / 2);
-    Tools::Texture::Show2D(colorTextures[1], Variables::WindowSize.x / 2,
-                           Variables::WindowSize.y / 2,
-                           Variables::WindowSize.x / 2,
-                           Variables::WindowSize.y / 2);
-    vertexShaderCounter.stop();
-    vertexShaderCounter.get();
-    fragmentShaderCounter.stop();
-    fragmentShaderCounter.get();
+    std::visit([](auto&& algo) { algo->run(); }, g_AlgorithmP);
 }
 
 void init() {
     // Default scene distance
     Variables::Transform.SceneZOffset = 3.0f;
 
-    // Set OpenGL state variables
-    glEnable(GL_DEPTH_TEST);
-    glLineWidth(2.0);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-    g_GBufferFBO = createGBuffer();
+    std::visit([](auto&& algo) { algo->initialize(); }, g_AlgorithmP);
 
     // Load shader program
     compileShaders();
@@ -166,22 +27,84 @@ void init() {
 
 constexpr const char* help_message = "no help here";
 
-void compileShaders(void* clientData) {
-    // Create shader program object
-    Tools::Shader::CreateShaderProgramFromFile(
-      g_Program, "shader.vert", nullptr, nullptr, nullptr, "shader.frag");
+void resetAlgorithm() {
+    std::visit([](auto&& algo) { algo->reset(); }, g_AlgorithmP);
 }
 
 int showGUI() {
-    const int menuHeight = 55;
+    int menuHeight = 305;
+    const int oneInt = 1;
+    const int itemWidth = 140 * IMGUI_RESIZE_FACTOR;
 
     ImGui::Begin("Render");
     ImGui::SetWindowSize(glm::vec2(220, menuHeight) * IMGUI_RESIZE_FACTOR,
                          ImGuiCond_Always);
-    ImGui::Checkbox("wire mode", &g_WireMode);
+    ImGui::SetNextItemWidth(itemWidth);
+    // if (ImGui::Combo("shading", &g_Algorithm, "Forward\0Deferred\0"))
+    //     resetAlgorithm();
+    ImGui::Checkbox("rotate lights", &Scene::get().lights.rotate);
+    ImGui::Checkbox("show lights", &g_ShowLights);
+    ImGui::Checkbox("show light range", &g_ShowLightRange);
+    if (ImGui::Checkbox("synchronize timers", &g_ExplicitTimerSync)) {
+        resetAlgorithm();
+    }
+    ImGui::SameLine(170.0f * IMGUI_RESIZE_FACTOR, -10.0f * IMGUI_RESIZE_FACTOR);
+    if (ImGui::Button("reset")) resetAlgorithm();
+
+    ImGui::Separator();
+    ImGui::Text("SPHERES");
+    ImGui::SetNextItemWidth(itemWidth);
+    auto& numSpheresPerRow = Scene::get().spheres.numSpheresPerRow;
+    if (ImGui::InputScalar("per row", ImGuiDataType_S32, &numSpheresPerRow,
+                           &oneInt)) {
+        numSpheresPerRow = glm::clamp(numSpheresPerRow, 1, 100);
+        Scene::get().lights.create(static_cast<float>(numSpheresPerRow));
+        resetAlgorithm();
+    }
+    ImGui::SetNextItemWidth(itemWidth);
+    auto& numSphereSlices = Scene::get().spheres.numSphereSlices;
+    if (ImGui::InputScalar("slices", ImGuiDataType_S32, &numSphereSlices,
+                           &oneInt)) {
+        numSphereSlices = glm::clamp(numSphereSlices, 5, 100);
+        resetAlgorithm();
+    }
+
+    ImGui::Separator();
+    ImGui::Text("LIGHTS");
+    ImGui::SetNextItemWidth(itemWidth);
+    auto& numLights = Scene::get().spheres.numSpheresPerRow;
+    if (ImGui::InputScalar("count", ImGuiDataType_S32, &numLights, &oneInt)) {
+        numLights = glm::clamp(numLights, 1, Scene::MAX_LIGHTS);
+        resetAlgorithm();
+    }
+    ImGui::SetNextItemWidth(itemWidth);
+    ImGui::SliderFloat("speed", &Scene::get().lights.rotationSpeed, 0.0f, 0.2f);
+
+    ImGui::SetNextItemWidth(56 * IMGUI_RESIZE_FACTOR);
+    auto& lightRangeLimits = Scene::get().lights.rangeLimits;
+    if (ImGui::SliderFloat("##x", &lightRangeLimits.x, 0.01f,
+                           lightRangeLimits.y, "%.2f")) {
+        Scene::get().lights.updateRadiuses();
+        resetAlgorithm();
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(56 * IMGUI_RESIZE_FACTOR);
+    if (ImGui::SliderFloat("##y", &lightRangeLimits.y, lightRangeLimits.x, 8.0f,
+                           "%.2f")) {
+        Scene::get().lights.updateRadiuses();
+        resetAlgorithm();
+    }
+    ImGui::SameLine();
+    ImGui::Text("range");
     ImGui::End();
+
+    std::visit([](auto&& algo) { algo->gui(glm::ivec2(235, 10), 240); },
+               g_AlgorithmP);
+
     return menuHeight;
 }
+
+void compileShaders(void* clientData) { std::visit([](auto&& algo) { algo->reset(true); }, g_AlgorithmP); }
 
 //-----------------------------------------------------------------------------
 // Name: keyboardChanged()
@@ -190,11 +113,15 @@ int showGUI() {
 void keyboardChanged(int key, int action, int mods) {
     switch (key) {
         case GLFW_KEY_W:
-            g_WireMode = !g_WireMode;
+            // g_WireMode = !g_WireMode;
             break;
         default:
             break;
     }
+}
+
+void destroyAlgorithm() {
+    std::visit([](auto&& algo) { algo.reset(nullptr); }, g_AlgorithmP);
 }
 
 //-----------------------------------------------------------------------------
@@ -222,7 +149,7 @@ int main() {
       1200, 900, "[PGR2] Cornell Box",
       static_cast<const int*>(OGL_CONFIGURATION), // OGL configuration hints
       init,                                       // Init GL callback function
-      nullptr,         // Release GL callback function
+      destroyAlgorithm,         // Release GL callback function
       showGUI,         // Show GUI callback function
       display,         // Display callback function
       nullptr,         // Window resize callback function

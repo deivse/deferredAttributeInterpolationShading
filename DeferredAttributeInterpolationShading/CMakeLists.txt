@@ -6,7 +6,7 @@ Message(STATUS "Processing ${TARGET_NAME}:")
 # ####################################################################################
 # Add source files and shaders
 #
-file(GLOB SOURCE_FILES *.cpp *.hpp *.inl *.h *.c)
+file(GLOB_RECURSE SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/*.inl ${CMAKE_CURRENT_SOURCE_DIR}/*.h ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 file(GLOB SHADER_FILES *.vert *.frag *.geom *.tcs *.tes *.mesh)
 
 # ####################################################################################
@@ -28,6 +28,8 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
 )
 
 _add_target_definitions(${TARGET_NAME})
+
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # ####################################################################################
 # Linkages

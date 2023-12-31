@@ -4,8 +4,10 @@
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
+#include <iostream>
 #include <tools.h>
 #include <globals.h>
+#include<fmt/format.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -835,9 +837,8 @@ namespace Shader {
                                 const char* preprocessor) {
         std::vector<char> fileContent;
         if (!Tools::ReadFile(fileContent, file_name)) {
-            fprintf(
-              stderr,
-              "Shader creation failed, input file is empty or missing!\n");
+            std::cerr << fmt::format("Shader creation failed, input file ({}) is "
+                                     "empty or missing!\n", file_name); 
             return 0;
         }
         fileContent.emplace_back('\0'); // null terminated

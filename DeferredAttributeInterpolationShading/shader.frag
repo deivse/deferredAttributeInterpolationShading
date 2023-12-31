@@ -24,5 +24,5 @@ void main(void) {
     // Compute fragment color
     float NdotL = max(0.0, dot(normalize(lightViewPos.xyz - position.xyz), normalize(normal)));
     FragColor  = vec4(color.rgb * NdotL, color.a);
-    SecondColorTex = vec4(vec3(NdotL), 1);;
+    SecondColorTex = vec4(vec3(NdotL), 1);
 }

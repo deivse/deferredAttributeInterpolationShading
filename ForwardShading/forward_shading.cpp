@@ -16,7 +16,8 @@
 //    rotation (left button)
 //-----------------------------------------------------------------------------
 
-#include "common.h"
+#include <common.h>
+#include <tools.h>
 #include <algorithm>
 #include <map>
 #include "glbinding-aux/Meta.h"

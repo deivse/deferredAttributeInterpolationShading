@@ -4,10 +4,28 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "conan build",
+            "label": "conan build Debug",
             "type": "shell",
             "group": "build",
-            "command": "conan build ."
-        }
+            "command": "conan build . -s build_type=Debug",
+        },
+        {
+            "label": "conan build RelWithDebInfo",
+            "type": "shell",
+            "group": "build",
+            "command": "conan build . -s build_type=RelWithDebInfo",
+        },
+        {
+            "label": "conan build Release",
+            "type": "shell",
+            "group": "build",
+            "command": "conan build . -s build_type=Release",
+        },
+        {
+            "label": "conan build all",
+            "type": "shell",
+            "group": "build",
+            "command": "conan build . -s build_type=Debug && conan build . -s build_type=RelWithDebInfo && conan build . -s build_type=Release",
+        },
     ]
 }
