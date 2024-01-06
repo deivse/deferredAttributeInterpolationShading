@@ -7,25 +7,43 @@
             "label": "conan build Debug",
             "type": "shell",
             "group": "build",
-            "command": "conan build . -s build_type=Debug",
+            "command": "conan build . -s build_type=Debug"
         },
         {
             "label": "conan build RelWithDebInfo",
             "type": "shell",
             "group": "build",
-            "command": "conan build . -s build_type=RelWithDebInfo",
+            "command": "conan build . -s build_type=RelWithDebInfo"
         },
         {
             "label": "conan build Release",
             "type": "shell",
             "group": "build",
-            "command": "conan build . -s build_type=Release",
+            "command": "conan build . -s build_type=Release"
         },
         {
             "label": "conan build all",
             "type": "shell",
             "group": "build",
-            "command": "conan build . -s build_type=Debug && conan build . -s build_type=RelWithDebInfo && conan build . -s build_type=Release",
+            "command": "conan build . -s build_type=Debug && conan build . -s build_type=RelWithDebInfo && conan build . -s build_type=Release"
         },
+        {
+            "label": "Run DAIS (Debug)",
+            "type": "shell",
+            "command": "${workspaceFolder}/bin_x64/Debug/DeferredAttributeInterpolationShading.exe",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}/bin_x64/Debug"
+            }
+        },
+        {
+            "label": "Run DAIS (RelWithDebInfo)",
+            "type": "shell",
+            "command": "${workspaceFolder}/bin_x64/RelWithDebInfo/DeferredAttributeInterpolationShading.exe",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}/bin_x64/Debug"
+            }
+        }
     ]
 }
