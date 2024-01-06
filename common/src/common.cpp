@@ -290,7 +290,6 @@ void KeyboardChanged(GLFWwindow* window, int key, int scancode, int action,
             Variables::Shader::UserTest = !Variables::Shader::UserTest;
             return;
         case GLFW_KEY_C:
-            fprintf(stderr, "\n");
             compileShaders();
             return;
     }
@@ -409,8 +408,8 @@ int common_main(int window_width, int window_height, const char* window_title,
                 if (hint == GLFW_OPENGL_DEBUG_CONTEXT)
                     Variables::Debug = (value == 1);
                 if ((hint == GLFW_CONTEXT_VERSION_MAJOR) && (value < 4)) {
-                    fprintf(stderr,
-                            "Error: OpenGL version must be 4 or higher\n");
+                    spdlog::critical("Error: OpenGL version must be 4 or "
+                                     "higher");
                     return 2;
                 }
         }
@@ -421,7 +420,7 @@ int common_main(int window_width, int window_height, const char* window_title,
       = glfwCreateWindow(Variables::WindowSize.x, Variables::WindowSize.y,
                          window_title, nullptr, nullptr);
     if (!Variables::Window) {
-        fprintf(stderr, "Error: unable to create window\n");
+        spdlog::critical("Error: unable to create window");
         return 3;
     }
     glfwSetWindowPos(Variables::Window, 100, 100);
@@ -440,13 +439,14 @@ int common_main(int window_width, int window_height, const char* window_title,
     glbinding::initialize(glfwGetProcAddress);
 
     // Print debug info
-    (void)fprintf(
-      stderr, "VENDOR  : %s\nVERSION : %s\nRENDERER: %s\nGLSL    : %s\n",
-      glGetString(GL_VENDOR), glGetString(GL_VERSION), glGetString(GL_RENDERER),
-      glGetString(GL_SHADING_LANGUAGE_VERSION));
-    (void)fprintf(stderr,
-                  "----------------------------------------------------------"
-                  "---------------------\n");
+    constexpr auto getGlStringView = [](gl::GLenum name) {
+        return std::string_view{
+          reinterpret_cast<const char*>(glGetString(name))};
+    };
+    spdlog::info("VENDOR  : {}", getGlStringView(GL_VENDOR));
+    spdlog::info("VERSION : {}", getGlStringView(GL_VERSION));
+    spdlog::info("RENDERER: {}", getGlStringView(GL_RENDERER));
+    spdlog::info("GLSL    : {}", getGlStringView(GL_SHADING_LANGUAGE_VERSION));
 
     // Init GUI
     IMGUI_CHECKVERSION();
@@ -483,9 +483,10 @@ int common_main(int window_width, int window_height, const char* window_title,
     // Disable VSync if required
     if (bDisableVSync) {
         glfwSwapInterval(0);
-        fprintf(stderr, "VSync is disabled.\n");
-    } else
-        fprintf(stderr, "VSync is enabled!\n");
+        spdlog::info("VSync is disabled.");
+    } else {
+        spdlog::info("VSync is enabled.");
+    }
 
     // Check
     if (Variables::ShowMemStat) {
@@ -502,10 +503,7 @@ int common_main(int window_width, int window_height, const char* window_title,
     // Init OGL
     if (cbUserInitGL) {
         cbUserInitGL();
-        (void)fprintf(stderr, "OpenGL initialized...\n");
-        (void)fprintf(stderr,
-                      "------------------------------------------------------"
-                      "-------------------------\n");
+        spdlog::info("OpenGL initialized...");
     }
 
     glGenQueries(OpenGL::NumQueries, OpenGL::Query);

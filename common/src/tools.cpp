@@ -7,7 +7,7 @@
 #include <iostream>
 #include <tools.h>
 #include <globals.h>
-#include<fmt/format.h>
+#include <fmt/format.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -15,6 +15,7 @@
 #include <stb_image_write.h>
 
 #include <glm/gtc/constants.hpp>
+#include <spdlog/spdlog.h>
 
 namespace Statistic {
 float FPS = 0.0f; // Current FPS
@@ -198,7 +199,7 @@ void SaveFramebuffer(GLuint framebufferId, GLsizei width, GLsizei height) {
             width, height, Statistic::Frame::ID);
 
     if (stbi_write_png(file_name, width, height, 4, &pixels[0], 4 * width)) {
-        fprintf(stderr, "Screen saved to %s\n", file_name);
+        spdlog::info("Screen saved to {}", file_name);
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fboId);
@@ -690,14 +691,14 @@ namespace Shader {
     //-----------------------------------------------------------------------------
     bool SaveBinaryCode(GLuint programId, const char* fileName) {
         if (!Variables::ShaderBinaryOutput) {
-            fprintf(stderr, "Shader binary output is not supported!\n");
+            spdlog::error("Shader binary output is not supported!");
             return false;
         }
 
         GLint binaryLength = 0;
         glGetProgramiv(programId, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
         if (binaryLength < 1) {
-            fprintf(stderr, "Unable to get shader binary code!\n");
+            spdlog::error("Unable to get shader binary code!");
         }
 
         GLenum binaryFormat = GL_NONE;
@@ -724,7 +725,9 @@ namespace Shader {
             std::vector<char> buffer(log_length);
             int written = 0;
             glGetShaderInfoLog(shader_id, log_length, &written, &buffer[0]);
-            fprintf(stderr, "%s\n", &buffer[0]);
+            spdlog::info(
+              "Shader info log: {}",
+              std::string_view{buffer.data(), static_cast<size_t>(written)});
         }
     }
 
@@ -742,7 +745,9 @@ namespace Shader {
             std::vector<char> buffer(log_length);
             int written = 0;
             glGetProgramInfoLog(program_id, log_length, &written, &buffer[0]);
-            fprintf(stderr, "%s\n", &buffer[0]);
+            spdlog::info(
+              "Program info log: {}",
+              std::string_view{buffer.data(), static_cast<size_t>(written)});
         }
     }
 
@@ -774,44 +779,28 @@ namespace Shader {
                                   const char* shader_name) {
         if (!source) return 0;
 
-        switch (shader_type) {
-            case GL_VERTEX_SHADER:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name : "vertex shader");
-                break;
-            case GL_FRAGMENT_SHADER:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name : "fragment shader ");
-                break;
-            case GL_TESS_CONTROL_SHADER:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name
-                                    : "tesselation control shader");
-                break;
-            case GL_TESS_EVALUATION_SHADER:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name
-                                    : "tesselation evaluation shader");
-                break;
-            case GL_GEOMETRY_SHADER:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name : "geometry shader");
-                break;
-            case GL_COMPUTE_SHADER:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name : "compute shader");
-                break;
-            case GL_MESH_SHADER_NV:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name : "mesh shader");
-                break;
-            case GL_TASK_SHADER_NV:
-                fprintf(stderr, "%s",
-                        shader_name ? shader_name : "task shader");
-                break;
-            default:
-                return 0;
-        }
+        auto shader_type_str = [](GLenum shader_type) {
+            switch (shader_type) {
+                case GL_VERTEX_SHADER:
+                    return "Vertex";
+                case GL_FRAGMENT_SHADER:
+                    return "Fragment";
+                case GL_TESS_CONTROL_SHADER:
+                    return "Tesselation Control";
+                case GL_TESS_EVALUATION_SHADER:
+                    return "Tesselation Evaluation";
+                case GL_GEOMETRY_SHADER:
+                    return "Geometry";
+                case GL_COMPUTE_SHADER:
+                    return "Compute";
+                case GL_MESH_SHADER_NV:
+                    return "Mesh";
+                case GL_TASK_SHADER_NV:
+                    return "Task";
+                default:
+                    return "(unknown shader type)";
+            }
+        };
 
         GLuint shader_id = glCreateShader(shader_type);
         if (shader_id == 0) return 0;
@@ -819,14 +808,16 @@ namespace Shader {
         glShaderSource(shader_id, 1, &source, nullptr);
         glCompileShader(shader_id);
         if (CheckShaderCompileStatus(shader_id) != GL_TRUE) {
-            fprintf(stderr, " compilation failed.\n");
+            spdlog::error("{} shader compilation failed ({})",
+                          shader_type_str(shader_type),
+                          shader_name ? shader_name : "shader name unknown");
             CheckShaderInfoLog(shader_id);
             glDeleteShader(shader_id);
             return 0;
-        } else {
-            fprintf(stderr, " compiled.\n");
-            return shader_id;
         }
+        spdlog::debug("{} shader compiled.{}", shader_type_str(shader_type),
+                      shader_name ? fmt::format(" ({})", shader_name) : "");
+        return shader_id;
     }
 
     //-----------------------------------------------------------------------------
@@ -837,8 +828,9 @@ namespace Shader {
                                 const char* preprocessor) {
         std::vector<char> fileContent;
         if (!Tools::ReadFile(fileContent, file_name)) {
-            std::cerr << fmt::format("Shader creation failed, input file ({}) is "
-                                     "empty or missing!\n", file_name); 
+            spdlog::error("Shader creation failed, input file ({}) is "
+                          "empty or missing!",
+                          file_name);
             return 0;
         }
         fileContent.emplace_back('\0'); // null terminated
@@ -917,9 +909,7 @@ namespace Shader {
         glLinkProgram(pr_id);
         if (!CheckProgramLinkStatus(pr_id)) {
             CheckProgramInfoLog(pr_id);
-            fprintf(stderr, "program linking failed.\n");
-            fprintf(stderr, "--------------------------------------------------"
-                            "-----------------------------\n");
+            spdlog::error("Program linking failed. See previous log messages.");
             glDeleteProgram(pr_id);
             return false;
         }
@@ -928,9 +918,6 @@ namespace Shader {
         glDeleteProgram(programId);
         _updateProgramList(programId, pr_id);
         programId = pr_id;
-
-        fprintf(stderr, "------------------------------------------------------"
-                        "-------------------------\n");
 
         return true;
     }
@@ -963,9 +950,7 @@ namespace Shader {
         glLinkProgram(pr_id);
         if (!CheckProgramLinkStatus(pr_id)) {
             CheckProgramInfoLog(pr_id);
-            fprintf(stderr, "program linking failed.\n");
-            fprintf(stderr, "--------------------------------------------------"
-                            "-----------------------------\n");
+            spdlog::error("Program linking failed. See previous log messages.");
             glDeleteProgram(pr_id);
             return false;
         }
@@ -974,9 +959,6 @@ namespace Shader {
         glDeleteProgram(programId);
         _updateProgramList(programId, pr_id);
         programId = pr_id;
-
-        fprintf(stderr, "------------------------------------------------------"
-                        "-------------------------\n");
 
         return true;
     }
@@ -1025,9 +1007,8 @@ namespace Shader {
         glLinkProgram(pr_id);
         if (!CheckProgramLinkStatus(pr_id)) {
             CheckProgramInfoLog(pr_id);
-            fprintf(stderr, "Program linking failed!\n");
-            fprintf(stderr, "--------------------------------------------------"
-                            "-----------------------------\n");
+            spdlog::error("Program linking failed. See previous log messages.");
+
             glDeleteProgram(pr_id);
             return false;
         }
@@ -1036,9 +1017,6 @@ namespace Shader {
         glDeleteProgram(programId);
         _updateProgramList(programId, pr_id);
         programId = pr_id;
-
-        fprintf(stderr, "------------------------------------------------------"
-                        "-------------------------\n");
 
         return true;
     }
@@ -1077,9 +1055,8 @@ namespace Shader {
         glLinkProgram(pr_id);
         if (!CheckProgramLinkStatus(pr_id)) {
             CheckProgramInfoLog(pr_id);
-            fprintf(stderr, "Program linking failed!\n");
-            fprintf(stderr, "--------------------------------------------------"
-                            "-----------------------------\n");
+            spdlog::error("Program linking failed. See previous log messages.");
+
             glDeleteProgram(pr_id);
             return false;
         }
@@ -1088,10 +1065,6 @@ namespace Shader {
         glDeleteProgram(programId);
         _updateProgramList(programId, pr_id);
         programId = pr_id;
-
-        fprintf(stderr, "------------------------------------------------------"
-                        "-------------------------\n");
-
         return true;
     }
 
@@ -1120,9 +1093,8 @@ namespace Shader {
         glLinkProgram(pr_id);
         if (!CheckProgramLinkStatus(pr_id)) {
             CheckProgramInfoLog(pr_id);
-            fprintf(stderr, "Program linking failed!\n");
-            fprintf(stderr, "--------------------------------------------------"
-                            "-----------------------------\n");
+            spdlog::error("Program linking failed. See previous log messages.");
+
             glDeleteProgram(pr_id);
             return false;
         }
@@ -1131,9 +1103,6 @@ namespace Shader {
         glDeleteProgram(programId);
         _updateProgramList(programId, pr_id);
         programId = pr_id;
-
-        fprintf(stderr, "------------------------------------------------------"
-                        "-------------------------\n");
 
         return true;
     }
@@ -1149,20 +1118,20 @@ namespace Texture {
         constexpr GLenum SHADER_TYPES[]
           = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
         // Vertex shader (same for all texture types)
-        constexpr const auto vs
+        constexpr const auto* const vs
           = "#version 450 core\nuniform vec4 Vertex[4];\nout vec2 "
             "v_TexCoord;\nvoid main(void) {\nv_TexCoord  = "
             "Vertex[gl_VertexID].zw;\ngl_Position = "
             "vec4(Vertex[gl_VertexID].xy, 0.0, 1.0f);\n}";
         // Fragment shaders, following formats are supported GL_RGBA8,
         // GL_RGBA8MS, GL_R32UI
-        constexpr const auto fsRGBA8
+        constexpr const auto* const fsRGBA8
           = "#version 400 core\nlayout (location = 0) out vec4 FragColor;\nin "
             "vec2 v_TexCoord;\nuniform sampler2D u_Texture;\nuniform int u_Lod "
             "= 0;\nuniform float u_Scale = 1.0;\nvoid main(void) {\nFragColor "
             "= vec4(textureLod(u_Texture, v_TexCoord, u_Lod).rgb * u_Scale, "
             "1.0);\n}";
-        constexpr const auto fsRGBA8MS
+        constexpr const auto* const fsRGBA8MS
           = "#version 400 core\nlayout (location = 0) out vec4 FragColor;\nin "
             "vec2 v_TexCoord;\nuniform sampler2DMS u_Texture;\nuniform float   "
             "    u_Scale = 1.0;\nvoid main(void) {\nvec3 color = "
@@ -1171,7 +1140,7 @@ namespace Texture {
             "i = 0; i < numSamples; i++)\ncolor += texelFetch(u_Texture, "
             "texCoords, i).rgb * u_Scale;\nFragColor = "
             "vec4(color/u_NumSamples, 1.0);\n}";
-        constexpr const auto fsR32UI
+        constexpr const auto* const fsR32UI
           = "#version 400 core\nlayout (location = 0) out vec4 FragColor;\nin "
             "vec2 v_TexCoord;\nuniform usampler2D u_Texture;\nuniform int "
             "u_Lod = 0;\nuniform float u_Scale = 1.0;\nvoid main(void) {\nuint "
@@ -1238,7 +1207,7 @@ namespace Texture {
         if ((programs[programIdx] == 0)
             && !Shader::CreateShaderProgramFromSource(programs[programIdx], 2,
                                                       SHADER_TYPES, sources)) {
-            fprintf(stderr, "Show2D: Unable to compile shader program.");
+            spdlog::error("Texture::Show2D: Unable to compile shader program.");
             return;
         }
 
@@ -1337,7 +1306,8 @@ namespace Texture {
             const char* sources[2] = {vs, fsRGBA8};
             if (!Shader::CreateShaderProgramFromSource(program, 2, SHADER_TYPES,
                                                        sources)) {
-                fprintf(stderr, "Show3D: Unable to compile shader program.");
+                spdlog::error(
+                  "Texture::Show3D: Unable to compile shader program.");
                 return;
             }
         }
@@ -1398,7 +1368,8 @@ namespace Texture {
         if (program == 0) {
             if (!Shader::CreateShaderProgramFromSource(program, 2, SHADER_TYPES,
                                                        sources.data())) {
-                fprintf(stderr, "ShowCube: Unable to compile shader program.");
+                spdlog::error("Texture::ShowCube: Unable to compile shader "
+                              "program.");
                 return;
             }
 
@@ -1590,7 +1561,8 @@ namespace Texture {
         if ((programs[programIdx] == 0)
             && !Shader::CreateShaderProgramFromSource(programs[programIdx], 2,
                                                       SHADER_TYPES, sources)) {
-            fprintf(stderr, "ShowDepth: Unable to compile shader program.");
+            spdlog::error("Texture::ShowDepth: Unable to compile shader "
+                          "program.");
             return;
         }
 
@@ -1668,8 +1640,7 @@ namespace Texture {
                                           &height, &numChannels, 0);
         if (pixels && (numChannels == 3 || numChannels == 4)) {
             const auto log = glm::floor(glm::log2(glm::max(width, height)));
-            const int numLevels = !mipmapped ? 1 : (log + 1);
-            fprintf(stderr, "NUM LEVELS %d\n", numLevels);
+            const int numLevels = !mipmapped ? 1 : static_cast<int>(log + 1);
 
             glCreateTextures(GL_TEXTURE_2D, 1, &texId);
             glTextureParameteri(texId, GL_TEXTURE_MIN_FILTER,
@@ -1955,8 +1926,6 @@ namespace Noise {
                 const float sineValue = 256 * fabs(sin(xyValue));
                 pixels[x + y * width] = glm::u8vec3(sineValue);
             }
-            fprintf(stderr, "\rGenerateMarblePatter() - row %d generated\t\t",
-                    y);
         }
 
         return true;

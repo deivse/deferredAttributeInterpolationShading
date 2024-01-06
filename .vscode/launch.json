@@ -11,7 +11,7 @@
             "program": "${workspaceFolder}/bin_x64/Debug/DeferredAttributeInterpolationShading.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}/bin_x64/Debug/",
             "environment": [],
             "console": "integratedTerminal"
         }

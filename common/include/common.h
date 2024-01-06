@@ -30,6 +30,8 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include <spdlog/spdlog.h>
+#include <fmt/color.h>
 
 using namespace gl;
 
@@ -125,7 +127,8 @@ inline void MouseWheelChanged(GLFWwindow* window, double dx, double dy) {
 // Name: MouseButtonChanged()
 // Desc: internal
 //-----------------------------------------------------------------------------
-inline void MouseButtonChanged(GLFWwindow* window, int button, int action, int mods) {
+inline void MouseButtonChanged(GLFWwindow* window, int button, int action,
+                               int mods) {
     static std::chrono::system_clock::time_point lastClickTime[3];
     const bool clicked = (action == GLFW_PRESS);
     bool doubleClicked = false;
@@ -227,74 +230,71 @@ inline void
         && (type == GL_DEBUG_TYPE_OTHER)) // daam4408
         return;
 
-    switch (source) {
-        case GL_DEBUG_SOURCE_API:
-            fprintf(stderr, "Source  : API\n");
-            break;
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
-            fprintf(stderr, "Source  : window system\n");
-            break;
-        case GL_DEBUG_SOURCE_SHADER_COMPILER:
-            fprintf(stderr, "Source  : shader compiler\n");
-            break;
-        case GL_DEBUG_SOURCE_THIRD_PARTY:
-            fprintf(stderr, "Source  : third party\n");
-            break;
-        case GL_DEBUG_SOURCE_APPLICATION:
-            fprintf(stderr, "Source  : application\n");
-            break;
-        case GL_DEBUG_SOURCE_OTHER:
-            fprintf(stderr, "Source  : other\n");
-            break;
-        default:
-            fprintf(stderr, "Source  : unknown\n");
-            break;
-    }
+    constexpr auto getMsgSourceString = [](GLenum source) {
+        switch (source) {
+            case GL_DEBUG_SOURCE_API:
+                return "API";
+            case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+                return "window system";
+            case GL_DEBUG_SOURCE_SHADER_COMPILER:
+                return "shader compiler";
+            case GL_DEBUG_SOURCE_THIRD_PARTY:
+                return "third party";
+            case GL_DEBUG_SOURCE_APPLICATION:
+                return "application";
+            case GL_DEBUG_SOURCE_OTHER:
+                return "other";
+            default:
+                return "unknown";
+        }
+    };
 
-    switch (type) {
-        case GL_DEBUG_TYPE_ERROR:
-            fprintf(stderr, "Type    : error\n");
-            break;
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-            fprintf(stderr, "Type    : deprecated behaviour\n");
-            break;
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
-            fprintf(stderr, "Type    : undefined behaviour\n");
-            break;
-        case GL_DEBUG_TYPE_PORTABILITY:
-            fprintf(stderr, "Type    : portability issue\n");
-            break;
-        case GL_DEBUG_TYPE_PERFORMANCE:
-            fprintf(stderr, "Type    : performance issue\n");
-            break;
-        case GL_DEBUG_TYPE_OTHER:
-            fprintf(stderr, "Type    : other\n");
-            break;
-        default:
-            fprintf(stderr, "Type    : unknown\n");
-            break;
-    }
+    constexpr auto getMsgTypeString = [](GLenum type) {
+        switch (type) {
+            case GL_DEBUG_TYPE_ERROR:
+                return "error";
+            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+                return "deprecated behaviour";
+            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+                return "undefined behaviour";
+            case GL_DEBUG_TYPE_PORTABILITY:
+                return "portability issue";
+            case GL_DEBUG_TYPE_PERFORMANCE:
+                return "performance issue";
+            case GL_DEBUG_TYPE_OTHER:
+                return "other";
+            default:
+                return "unknown";
+        }
+    };
 
-    fprintf(stderr, "ID      : 0x%x\n", id);
+    constexpr auto getMsgSeverityString = [](GLenum severity) {
+        switch (severity) {
+            case GL_DEBUG_SEVERITY_HIGH:
+                return "high";
+            case GL_DEBUG_SEVERITY_MEDIUM:
+                return "medium";
+            case GL_DEBUG_SEVERITY_LOW:
+                return "low";
+            case GL_DEBUG_SEVERITY_NOTIFICATION:
+                return "notification";
+            default:
+                return "unknown";
+        }
+    };
 
-    switch (severity) {
-        case GL_DEBUG_SEVERITY_HIGH:
-            fprintf(stderr, "Severity: high\n");
-            break;
-        case GL_DEBUG_SEVERITY_MEDIUM:
-            fprintf(stderr, "Severity: medium\n");
-            break;
-        case GL_DEBUG_SEVERITY_LOW:
-            fprintf(stderr, "Severity: low\n");
-            break;
-        default:
-            fprintf(stderr, "Severity: unknown\n");
-            break;
-    }
+    const auto logLevel
+      = (type == GL_DEBUG_TYPE_ERROR || severity == GL_DEBUG_SEVERITY_HIGH)
+          ? spdlog::level::err
+          : spdlog::level::warn;
 
-    fprintf(stderr, "Message : %s\n", message);
-    fprintf(stderr, "----------------------------------------------------------"
-                    "---------------------\n");
+    static auto oglMsgLabel = fmt::format(
+      fmt::fg(fmt::terminal_color::bright_black) | fmt::emphasis::bold, "OpenGL");
+    spdlog::log(logLevel, "[{}] {}", oglMsgLabel, message);
+    spdlog::log(logLevel,
+                "[{}] Type: {} | Source: {} | Severity: {} | Id: 0x{:x}",
+                oglMsgLabel, getMsgTypeString(type), getMsgSourceString(source),
+                getMsgSeverityString(severity), id);
 }
 
 //-----------------------------------------------------------------------------
@@ -302,7 +302,7 @@ inline void
 // Desc:
 //-----------------------------------------------------------------------------
 inline void glfwError(int error, const char* description) {
-    fprintf(stderr, "GLFW error: %s\n", description);
+    spdlog::error("GLFW error: {} (0x{:x})", description, error);
 }
 }; // end of namespace Callbacks
 
@@ -323,14 +323,15 @@ int common_main(int window_width, int window_height, const char* window_title,
 // Name: common_main()
 // Desc:
 //-----------------------------------------------------------------------------
-inline int common_main(int window_width, int window_height, const char* window_title,
-                TInitGLCallback cbUserInitGL,
-                TReleaseOpenGLCallback cbUserReleaseGL, TShowGUICallback cbGUI,
-                TDisplayCallback cbUserDisplay,
-                TWindowSizeChangedCallback cbUserWindowSizeChanged,
-                TKeyboardChangedCallback cbUserKeyboardChanged,
-                TMouseButtonChangedCallback cbUserMouseButtonChanged,
-                TMousePositionChangedCallback cbUserMousePositionChanged) {
+inline int
+  common_main(int window_width, int window_height, const char* window_title,
+              TInitGLCallback cbUserInitGL,
+              TReleaseOpenGLCallback cbUserReleaseGL, TShowGUICallback cbGUI,
+              TDisplayCallback cbUserDisplay,
+              TWindowSizeChangedCallback cbUserWindowSizeChanged,
+              TKeyboardChangedCallback cbUserKeyboardChanged,
+              TMouseButtonChangedCallback cbUserMouseButtonChanged,
+              TMousePositionChangedCallback cbUserMousePositionChanged) {
     return common_main(window_width, window_height, window_title, nullptr,
                        cbUserInitGL, cbUserReleaseGL, cbGUI, cbUserDisplay,
                        cbUserWindowSizeChanged, cbUserKeyboardChanged,
