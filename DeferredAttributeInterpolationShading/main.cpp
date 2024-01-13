@@ -22,7 +22,7 @@ void display() {
 
 void init() {
     // Default scene distance
-    Variables::Transform.SceneZOffset = 3.0f;
+    Variables::Transform.SceneZOffset = 8.0f;
 
     std::visit([](auto&& algo) { algo->initialize(); }, g_AlgorithmP);
 
@@ -90,14 +90,14 @@ int showGUI() {
     auto& lightRangeLimits = Scene::get().lights.rangeLimits;
     if (ImGui::SliderFloat("##x", &lightRangeLimits.x, 0.01f,
                            lightRangeLimits.y, "%.2f")) {
-        Scene::get().lights.updateRadiuses();
+        Scene::get().lights.genRandomRadiuses();
         resetAlgorithm();
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(56 * IMGUI_RESIZE_FACTOR);
     if (ImGui::SliderFloat("##y", &lightRangeLimits.y, lightRangeLimits.x, 8.0f,
                            "%.2f")) {
-        Scene::get().lights.updateRadiuses();
+        Scene::get().lights.genRandomRadiuses();
         resetAlgorithm();
     }
     ImGui::SameLine();

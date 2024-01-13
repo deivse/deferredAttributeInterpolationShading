@@ -13,18 +13,14 @@ struct Light
 };
 layout(binding = 0) uniform LightBuffer { Light lights[2048]; };
 
-uniform int u_VariableInt;
-uniform float u_VariableFloat;
-uniform mat4 u_ModelViewMatrix;
-uniform vec3 u_CameraPosition = vec3(0.0, 0.0, 0.0);
+layout (location = 0) uniform vec3 u_CameraPosition;
+layout (location = 1) uniform uint u_NumLights;
 
 in Vertex {
     vec4 position;
-    vec3 normal;
+    smooth vec3 normal;
     vec4 color;
 };
-
-const vec4 c_LightWorldPos = vec4(0.0, 0.9, 1.0, 1.0);
 
 // Simple phong lighting
 vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex, in vec3 normal, in vec4 diffSpecColor) {
@@ -40,6 +36,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex, in vec3 normal
     vec4 color = lights[lightIdx].color;
 
     // Calculate light attenuation factor
+    // float attenuation = 1.0;
     float attenuation = 1.0 - distance / lightPos.w;
 
     // Calculate diffuse color component
@@ -50,7 +47,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex, in vec3 normal
     // Calculate specular color component
     vec3  viewDir    = normalize(u_CameraPosition - vertex);
     vec3  halfwayDir = normalize(lightDir + viewDir);  
-    float NdotH      = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
+    float NdotH      = pow(max(dot(normal, halfwayDir), 0.0), 5.0);
     vec3  specular   = color.aaa * diffSpecColor.a * NdotH;         
 
     // Sum
@@ -59,9 +56,10 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex, in vec3 normal
 
 
 void main(void) {
-    FragColor = vec4(vec3(0), 1.0);
-    for (uint i = 0; i < 2048; ++i) {
-        vec3 lightContribution = calculateLightContribution(i, position.xyz, normal, color);
+    FragColor = vec4(vec3(0.0), 1.0);
+    const vec4 sphereColor = vec4(0.6, 0.4, 0.7, 1.0);
+    for (uint i = 0; i < u_NumLights; ++i) {
+        vec3 lightContribution = calculateLightContribution(i, position.xyz, normal, sphereColor);
         FragColor.rgb += lightContribution;
     }
 }

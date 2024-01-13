@@ -1,9 +1,10 @@
 #include <scene.h>
+#include <layout_constants.h>
 
 void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
     // Create random light
-    lights.resize(MAX_LIGHTS);
-    for (int i = 0; i < MAX_LIGHTS; i++) {
+    lights.resize(numLights);
+    for (int i = 0; i < numLights; i++) {
         const float positionRange
           = glm::linearRand(1.0f, maxDistanceFromWorldOrigin);
         const glm::vec3 position
@@ -22,7 +23,8 @@ void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(Light) * lights.size(),
                          lights.data(), GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
+    glBindBufferBase(GL_UNIFORM_BUFFER,
+                     getLocation(UniformBufferBindings::Lights), uniformBuffer);
 
     // Create vertex array to display all lights
     glDeleteVertexArrays(1, &vertexArray);
@@ -68,7 +70,9 @@ void Scene::Lights::renderLightCenters() {
     glDrawArrays(GL_POINTS, 0, numLights);
 }
 
-void Scene::Lights::updatePositions() {
+void Scene::Lights::update() {
+    glUniform1ui(getLocation(UniformLocations::NumLights), numLights);
+
     if (!rotate) return;
 
     const float cosAngle = glm::cos(rotationSpeed);
@@ -84,7 +88,7 @@ void Scene::Lights::updatePositions() {
                          lights.data());
 }
 
-void Scene::Lights::updateRadiuses() {
+void Scene::Lights::genRandomRadiuses() {
     for (auto& light : lights) {
         light.position.w = glm::linearRand(rangeLimits.x, rangeLimits.y);
     }
@@ -101,21 +105,26 @@ void Scene::Spheres::render() {
     // Calculate sphere positions
     const auto numSpheres = static_cast<size_t>(numSpheresPerRow)
                             * numSpheresPerRow * numSpheresPerRow;
-    if (numSpheres != spherePositions.size()) {
-        spherePositions.clear();
+    if (numSpheres != sphereOffsets.size()) {
+        sphereOffsets.clear();
         for (size_t i = 0; i < numSpheres; i++) {
             const int x = i % numSpheresPerRow;
             const int y = i / numSpheresPerRow % numSpheresPerRow;
             const int z
               = i / (numSpheresPerRow * numSpheresPerRow) % numSpheresPerRow;
-            spherePositions.push_back(
-              glm::vec3(x, y, z) - glm::vec3((numSpheresPerRow - 1) * 0.5f));
+            sphereOffsets.emplace_back(
+              glm::vec3(x, y, z) - glm::vec3((numSpheresPerRow - 1) * 0.5f), 1);
         }
 
-        // glDeleteBuffers(1, &attribBuffer);
-        // glCreateBuffers(1, &attribBuffer);
-        // glNamedBufferStorage(attribBuffer, spherePositions.size() *
-        // sizeof(glm::vec3), &spherePositions[0].x, GL_NONE);
+        glDeleteBuffers(1, &sphereOffsetsBuffer);
+        glCreateBuffers(1, &sphereOffsetsBuffer);
+        glNamedBufferStorage(
+          sphereOffsetsBuffer,
+          sphereOffsets.size() * sizeof(decltype(sphereOffsets)::value_type),
+          &sphereOffsets[0].x, BufferStorageMask::GL_NONE_BIT);
+        glBindBufferBase(gl::GLenum::GL_UNIFORM_BUFFER,
+                         getLocation(UniformBufferBindings::SphereOffsets),
+                         sphereOffsetsBuffer);
     }
 
     if ((vertexArray == 0) || (numSlices != numSphereSlices)) {
@@ -141,7 +150,9 @@ void Scene::Spheres::render() {
     glBindTextureUnit(0, texture);
     glBindVertexArray(vertexArray);
 
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(sphereVertices.size()));
+    glDrawArraysInstanced(GL_TRIANGLES, 0,
+                          static_cast<GLsizei>(sphereVertices.size()),
+                          static_cast<GLsizei>(numSpheres));
 
     glBindVertexArray(0);
 }

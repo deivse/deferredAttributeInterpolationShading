@@ -29,7 +29,7 @@ struct Scene
         GLuint uniformBuffer = 0; // Uniform buffer with lights
         GLuint vertexArray
           = 0; // Vertex array with light sphere (attenuation) geometry
-        int numLights = 1000; // Number of lights currently used in the scene
+        int numLights = 10; // Number of lights currently used in the scene
         float rotationSpeed = 0.01;        // Speed of light moving (rotation)
         glm::vec2 rangeLimits{0.2f, 2.0f}; // Light range limits
         bool rotate = true;                // Rotate lights
@@ -48,8 +48,8 @@ struct Scene
             create(maxDistanceFromWorldOrigin);
         }
         void create(float maxDistanceFromWorldOrigin);
-        void updatePositions();
-        void updateRadiuses();
+        void update();
+        void genRandomRadiuses();
 
         template<bool UseOwnShader = true>
         void renderLightRanges() {
@@ -77,9 +77,9 @@ struct Scene
         int numSphereSlices = 10;
         GLuint vertexArray = 0;
         GLuint vertexBuffer = 0;
-        GLuint attribBuffer = 0;
+        GLuint sphereOffsetsBuffer = 0;
         GLsizei numSlices = 0;
-        std::vector<glm::vec3> spherePositions;
+        std::vector<glm::vec4> sphereOffsets;
         std::vector<glm::vec3> sphereVertices;
 
         void render();
@@ -94,7 +94,7 @@ struct Scene
     Scene& operator=(Scene&&) = default;
 
     // TODO: update stuff when params change
-    void update() { lights.updatePositions(); }
+    void update() { lights.update(); }
 
     static Scene& get() {
         static Scene scene{};

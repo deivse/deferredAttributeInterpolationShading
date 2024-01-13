@@ -164,7 +164,7 @@ public:
     void debug() {}
 
     // Window resize callback
-    void onWindowResized(const glm::ivec2& resolution){
+    void onWindowResized(const glm::ivec2& resolution) {
         getDerived().windowResized(resolution);
     };
 

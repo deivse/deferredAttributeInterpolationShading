@@ -1,5 +1,5 @@
-#ifndef _COMMON_INCLUDE_GLOBALS_H_
-#define _COMMON_INCLUDE_GLOBALS_H_
+#ifndef COMMON_INCLUDE_GLOBALS
+#define COMMON_INCLUDE_GLOBALS
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_inverse.hpp>
@@ -95,4 +95,4 @@ struct Transformation
 extern Transformation Transform;
 }; // end of namespace Variables
 
-#endif // _COMMON_INCLUDE_GLOBALS_H_
+#endif /* COMMON_INCLUDE_GLOBALS */

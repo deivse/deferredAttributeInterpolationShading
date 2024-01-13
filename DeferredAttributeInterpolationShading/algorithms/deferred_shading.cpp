@@ -5,6 +5,8 @@
 #include <glm/vec2.hpp>
 #include <common.h>
 
+#include <layout_constants.h>
+
 #define DECLARE_OPTION(name, defaultValue) \
     bool& name = (options[#name] = defaultValue);
 namespace Algorithms {
@@ -23,28 +25,31 @@ void DefferedShading::initialize() {
           glLineWidth(2.0);
           glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-          glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+          const auto& cameraPosition
+            = Variables::Transform.Camera.getPosition();
+          glUniform3f(getLocation(UniformLocations::CameraPosition), cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+          //   glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-          // disable back face culling
-          glDisable(GL_CULL_FACE);
 
           Scene::get().update();
           Scene::get().spheres.render();
 
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-          glBindFramebuffer(GL_FRAMEBUFFER, 0);
-          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          Tools::Texture::Show2D(colorTextures[0], Variables::WindowSize.x / 2,
-                                 0, Variables::WindowSize.x / 2,
-                                 Variables::WindowSize.y / 2);
-          Tools::Texture::Show2D(colorTextures[1], Variables::WindowSize.x / 2,
-                                 Variables::WindowSize.y / 2,
-                                 Variables::WindowSize.x / 2,
-                                 Variables::WindowSize.y / 2);
+          //   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+          //   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+          //   Tools::Texture::Show2D(colorTextures[0], Variables::WindowSize.x
+          //   / 2,
+          //                          0, Variables::WindowSize.x / 2,
+          //                          Variables::WindowSize.y / 2);
+          //   Tools::Texture::Show2D(colorTextures[1], Variables::WindowSize.x
+          //   / 2,
+          //                          Variables::WindowSize.y / 2,
+          //                          Variables::WindowSize.x / 2,
+          //                          Variables::WindowSize.y / 2);
       },
       "shader");
 }
@@ -61,8 +66,7 @@ void DefferedShading::createGBuffer(const glm::ivec2& resolution) {
     glDeleteTextures(static_cast<int>(colorTextures.size()),
                      colorTextures.data());
     for (auto& texture : colorTextures) {
-        Tools::Texture::Create2D(texture, gl::GLenum::GL_RGBA8,
-                                 resolution);
+        Tools::Texture::Create2D(texture, gl::GLenum::GL_RGBA8, resolution);
     }
 
     // Create a framebuffer object ...
