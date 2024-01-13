@@ -12,6 +12,8 @@
 #include <fmt/format.h>
 
 #include <glbinding/gl/gl.h>
+#include <spdlog/spdlog.h>
+
 using namespace gl;
 
 using OptionsMap = std::unordered_map<std::string, bool>;
@@ -67,10 +69,10 @@ struct RenderPass
         vertexShaderCounter.stop();
     }
 
-    void reset() { timer.reset(); }
+    void resetTimer() { timer.reset(); }
 
     bool compileShaders(const OptionsMap& options) {
-        reset();
+        resetTimer();
         if (shaderFilenameBase.empty()) return true;
 
         // Create list of GLSL defines for enabled options
@@ -119,12 +121,42 @@ class Algorithm
     Tools::GPUTimer timer;    // GPU timer for the complete algorithm
 
     DerivedT& getDerived() { return reinterpret_cast<DerivedT&>(*this); }
-    const DerivedT& getDerived() const { return reinterpret_cast<const DerivedT&>(*this); }
+    const DerivedT& getDerived() const {
+        return reinterpret_cast<const DerivedT&>(*this);
+    }
     const std::string& getName() const { return getDerived().name; }
     std::vector<RenderPass>& getRenderPasses() {
         return getDerived().renderPasses;
     }
     OptionsMap& getOptions() { return getDerived().options; }
+
+protected:
+    template<typename... Args>
+    void log(spdlog::level::level_enum level,
+             spdlog::format_string_t<Args...> fmt, Args&&... args) {
+        spdlog::log(level, "{}: {}", getDerived().name,
+                    fmt::format(fmt, std::forward<Args>(args)...));
+    }
+
+    template<typename... Args>
+    void logWarning(spdlog::format_string_t<Args...> fmt, Args&&... args) {
+        log(spdlog::level::warn, fmt, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void logError(spdlog::format_string_t<Args...> fmt, Args&&... args) {
+        log(spdlog::level::err, fmt, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void logInfo(spdlog::format_string_t<Args...> fmt, Args&&... args) {
+        log(spdlog::level::info, fmt, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void logDebug(spdlog::format_string_t<Args...> fmt, Args&&... args) {
+        log(spdlog::level::debug, fmt, std::forward<Args>(args)...);
+    }
 
 public:
     // Displays algorithm debug informations. This method is called at the end
@@ -132,7 +164,9 @@ public:
     void debug() {}
 
     // Window resize callback
-    void windowResized(const glm::ivec2& resolution){};
+    void onWindowResized(const glm::ivec2& resolution){
+        getDerived().windowResized(resolution);
+    };
 
     // Executes the algorithm
     void run(bool forceSync = false) {
@@ -140,8 +174,7 @@ public:
         if (!initialized) initialized = reset(true);
 
         timer.start(forceSync);
-        for (auto& renderPass : getRenderPasses())
-            renderPass.run(forceSync);
+        for (auto& renderPass : getRenderPasses()) renderPass.run(forceSync);
         timer.stop();
 
         // Render/print debug information
@@ -156,7 +189,7 @@ public:
         if (resetShaders) {
             result = compile();
         }
-        for (auto& renderPass : getRenderPasses()) renderPass.reset();
+        for (auto& renderPass : getRenderPasses()) renderPass.resetTimer();
         return result;
     }
 

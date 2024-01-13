@@ -3,16 +3,21 @@
 #include "scene.h"
 #include <variant>
 
-using AlgorithmVariant = std::variant<std::unique_ptr<Algorithms::DefferedShading>>;
+#include <spdlog/spdlog.h>
+
+using AlgorithmVariant
+  = std::variant<std::unique_ptr<Algorithms::DefferedShading>>;
 AlgorithmVariant g_AlgorithmP{std::make_unique<Algorithms::DefferedShading>()};
 
-bool g_ShowLights = true;         // Render lights
+bool g_ShowLightCenters = true;   // Render lights
 bool g_ShowLightRange = false;    // Render lights' ranges
 bool g_ExplicitTimerSync = false; // Explicit synchronization will be made
                                   // before any performance measurement
 
 void display() {
     std::visit([](auto&& algo) { algo->run(); }, g_AlgorithmP);
+    if (g_ShowLightCenters) Scene::get().lights.renderLightCenters();
+    if (g_ShowLightRange) Scene::get().lights.renderLightRanges();
 }
 
 void init() {
@@ -43,7 +48,7 @@ int showGUI() {
     // if (ImGui::Combo("shading", &g_Algorithm, "Forward\0Deferred\0"))
     //     resetAlgorithm();
     ImGui::Checkbox("rotate lights", &Scene::get().lights.rotate);
-    ImGui::Checkbox("show lights", &g_ShowLights);
+    ImGui::Checkbox("show lights", &g_ShowLightCenters);
     ImGui::Checkbox("show light range", &g_ShowLightRange);
     if (ImGui::Checkbox("synchronize timers", &g_ExplicitTimerSync)) {
         resetAlgorithm();
@@ -72,9 +77,10 @@ int showGUI() {
     ImGui::Separator();
     ImGui::Text("LIGHTS");
     ImGui::SetNextItemWidth(itemWidth);
-    auto& numLights = Scene::get().spheres.numSpheresPerRow;
+    auto& numLights = Scene::get().lights.numLights;
     if (ImGui::InputScalar("count", ImGuiDataType_S32, &numLights, &oneInt)) {
         numLights = glm::clamp(numLights, 1, Scene::MAX_LIGHTS);
+        Scene::get().lights.create(static_cast<float>(numSpheresPerRow));
         resetAlgorithm();
     }
     ImGui::SetNextItemWidth(itemWidth);
@@ -104,23 +110,35 @@ int showGUI() {
     return menuHeight;
 }
 
-void compileShaders(void* clientData) { std::visit([](auto&& algo) { algo->reset(true); }, g_AlgorithmP); }
+void compileShaders(void* clientData) {
+    spdlog::debug("compileShaders top level function called, calling "
+                  "algorithm.reset(true)");
+    std::visit([](auto&& algo) { algo->reset(true); }, g_AlgorithmP);
+}
 
 //-----------------------------------------------------------------------------
 // Name: keyboardChanged()
 // Desc:
 //-----------------------------------------------------------------------------
 void keyboardChanged(int key, int action, int mods) {
-    switch (key) {
-        case GLFW_KEY_W:
-            // g_WireMode = !g_WireMode;
-            break;
-        default:
-            break;
-    }
+    // switch (key) {
+    //     case GLFW_KEY_W:
+    //         // g_WireMode = !g_WireMode;
+    //         break;
+    //     default:
+    //         break;
+    // }
+}
+
+void windowResized(const glm::ivec2& resolution) {
+    spdlog::trace("Window resized");
+    std::visit(
+      [&resolution](auto&& algo) { algo->onWindowResized(resolution); },
+      g_AlgorithmP);
 }
 
 void destroyAlgorithm() {
+    spdlog::trace("Destroying algorithm");
     std::visit([](auto&& algo) { algo.reset(nullptr); }, g_AlgorithmP);
 }
 
@@ -144,16 +162,18 @@ int main() {
                                          0};
 
     printf("%s\n", help_message);
+    spdlog::set_level(spdlog::level::trace);
+    spdlog::set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
 
     return common_main(
       1200, 900, "[PGR2] Cornell Box",
       static_cast<const int*>(OGL_CONFIGURATION), // OGL configuration hints
       init,                                       // Init GL callback function
-      destroyAlgorithm,         // Release GL callback function
-      showGUI,         // Show GUI callback function
-      display,         // Display callback function
-      nullptr,         // Window resize callback function
-      keyboardChanged, // Keyboard callback function
-      nullptr,         // Mouse button callback function
-      nullptr);        // Mouse motion callback function
+      destroyAlgorithm, // Release GL callback function
+      showGUI,          // Show GUI callback function
+      display,          // Display callback function
+      windowResized,    // Window resize callback function
+      keyboardChanged,  // Keyboard callback function
+      nullptr,          // Mouse button callback function
+      nullptr);         // Mouse motion callback function
 }

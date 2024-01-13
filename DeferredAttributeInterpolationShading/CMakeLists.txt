@@ -23,10 +23,6 @@ endif()
 #
 add_executable(${TARGET_NAME} ${SOURCE_FILES} ${SHADER_FILES})
 
-add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${SHADER_FILES} $<TARGET_FILE_DIR:${TARGET_NAME}>
-)
-
 _add_target_definitions(${TARGET_NAME})
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -35,3 +31,11 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # Linkages
 #
 target_link_libraries(${TARGET_NAME} PRIVATE libcommon)
+
+# Copy shader files, even if target is not changed
+add_custom_target(
+    ${TARGET_NAME}_copy_shaders ALL
+    DEPENDS ${SHADER_FILES}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SHADER_FILES} $<TARGET_FILE_DIR:${TARGET_NAME}>
+    COMMENT "Copying shader files to build directory"
+)

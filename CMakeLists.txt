@@ -113,6 +113,8 @@ find_package(OpenGL)
 add_subdirectory(common)
 
 #####################################################################################
+set(IGNORED_DIRECTORIES "build_all" "common" "downloaded_resources" "__*" "TiledDeferredShading")
+
 # Process PGR2 projects
 FILE (GLOB samples "./*")
 FOREACH( sample ${samples} )
@@ -120,7 +122,7 @@ FOREACH( sample ${samples} )
     if( EXISTS ${sample}/CMakeLists.txt )
       # extract the name from the path
       string( REGEX REPLACE "^.*/([^/]*)$" "\\1" SAMPLE_NAME ${sample} )
-      if( (NOT (${SAMPLE_NAME} MATCHES "^__")) AND (NOT(${SAMPLE_NAME} STREQUAL "build_all")) AND (NOT(${SAMPLE_NAME} STREQUAL "common")) AND (NOT(${SAMPLE_NAME} STREQUAL "downloaded_resources")))
+      if( (NOT (${SAMPLE_NAME} MATCHES "^__")) AND NOT ${SAMPLE_NAME} IN_LIST IGNORED_DIRECTORIES)
         # build the option to include the project or not
         set( "BUILD_${SAMPLE_NAME}" TRUE CACHE BOOL "Include the ${SAMPLE_NAME} sample" )
         # add the project

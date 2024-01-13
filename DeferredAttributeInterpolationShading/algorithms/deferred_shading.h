@@ -14,9 +14,14 @@ class DefferedShading : public Algorithm<DefferedShading>
 
     GLuint gBufferFBO = 0;
     std::array<GLuint, 4> colorTextures{};
+    GLuint depthStencilTex{};
 
-    void createGBuffer();
+    void createGBuffer(const glm::ivec2& resolution);
+
 public:
+    void windowResized(const glm::ivec2& resolution) {
+        createGBuffer(resolution);
+    }
     void initialize();
 
     friend class Algorithm<DefferedShading>;

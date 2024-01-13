@@ -20,7 +20,7 @@ out Vertex {
 
 void main(void) {
     position    = u_ModelViewMatrix * a_Vertex;
-    normal      = mat3(u_ModelViewMatrix) * a_Normal;
+    normal      = normalize(a_Vertex.xyz);
     color       = a_Color;
     gl_Position = u_ProjectionMatrix * position;
 }

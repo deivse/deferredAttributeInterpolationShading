@@ -51,7 +51,7 @@ struct Scene
         void updatePositions();
         void updateRadiuses();
 
-        template<bool UseOwnShader>
+        template<bool UseOwnShader = true>
         void renderLightRanges() {
             if constexpr (UseOwnShader) {
                 glUseProgram(ranges.program);

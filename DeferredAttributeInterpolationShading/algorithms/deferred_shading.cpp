@@ -1,6 +1,8 @@
 #include "deferred_shading.h"
 #include "models/cornell_box.h"
+#include "scene.h"
 
+#include <glm/vec2.hpp>
 #include <common.h>
 
 #define DECLARE_OPTION(name, defaultValue) \
@@ -9,7 +11,8 @@ namespace Algorithms {
 
 void DefferedShading::initialize() {
     DECLARE_OPTION(wireModel, false);
-    createGBuffer();
+    logDebug("Initializing");
+    createGBuffer(Variables::WindowSize);
 
     // Add rendering passes
     renderPasses.emplace_back(
@@ -24,7 +27,12 @@ void DefferedShading::initialize() {
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-          Tools::DrawCornellBox();
+
+          // disable back face culling
+          glDisable(GL_CULL_FACE);
+
+          Scene::get().update();
+          Scene::get().spheres.render();
 
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -41,31 +49,35 @@ void DefferedShading::initialize() {
       "shader");
 }
 
-void DefferedShading::createGBuffer() {
+void DefferedShading::createGBuffer(const glm::ivec2& resolution) {
+    logDebug("Creating GBuffer ...");
     std::array colorAttachments{GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
                                 GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
 
-    GLuint depthStencilTex{};
+    glDeleteTextures(1, &depthStencilTex);
     Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,
-                             Variables::WindowSize);
+                             resolution);
 
+    glDeleteTextures(static_cast<int>(colorTextures.size()),
+                     colorTextures.data());
     for (auto& texture : colorTextures) {
         Tools::Texture::Create2D(texture, gl::GLenum::GL_RGBA8,
-                                 Variables::WindowSize);
+                                 resolution);
     }
 
     // Create a framebuffer object ...
+    glDeleteFramebuffers(1, &gBufferFBO);
     glCreateFramebuffers(1, &gBufferFBO);
     glNamedFramebufferDrawBuffers(gBufferFBO, colorAttachments.size(),
                                   colorAttachments.data());
 
     // and attach color and depth textures
     for (size_t i = 0; i < colorAttachments.size(); i++) {
-        glNamedFramebufferTexture(gBufferFBO, colorAttachments[i], colorTextures[i],
-                                  0);
+        glNamedFramebufferTexture(gBufferFBO, colorAttachments[i],
+                                  colorTextures[i], 0);
     }
-    glNamedFramebufferTexture(gBufferFBO, gl::GLenum::GL_DEPTH_STENCIL_ATTACHMENT,
-                              depthStencilTex, 0);
+    glNamedFramebufferTexture(
+      gBufferFBO, gl::GLenum::GL_DEPTH_STENCIL_ATTACHMENT, depthStencilTex, 0);
 
     assert(glGetError() == GL_NO_ERROR);
     assert(glCheckNamedFramebufferStatus(gBufferFBO, GL_FRAMEBUFFER)

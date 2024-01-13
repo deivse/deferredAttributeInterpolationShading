@@ -81,10 +81,10 @@ struct RenderPass
         // vertexShaderCounter.stop();
     }
 
-    void reset() { timer.reset(); }
+    void resetTimer() { timer.reset(); }
 
     bool compile(const OptionsMap& options) {
-        reset();
+        resetTimer();
         if (shaderFilenameBase.empty()) return true;
 
         // Create list of GLSL defines for enabled options
@@ -177,7 +177,7 @@ struct Algorithm
         if (resetShaders) {
             return compile();
         }
-        for (auto& renderPass : renderPasses) renderPass.reset();
+        for (auto& renderPass : renderPasses) renderPass.resetTimer();
         return true;
     }
 
@@ -265,7 +265,7 @@ struct Light
 // GLOBAL VARIABLES____________________________________________________________
 int g_Algorithm = DeferredShading; // Current shading algorithm
 bool g_RotateLights = true;        // Rotate lights
-bool g_ShowLights = true;          // Render lights
+bool g_ShowLightCenters = true;    // Render lights
 bool g_ShowLightRange = false;     // Render lights' ranges
 bool g_ExplicitTimerSync = false;  // Explicit synchronization will be made
                                    // before any performance measurement
@@ -366,7 +366,7 @@ void display() {
         g_DeferredShading.run(g_ExplicitTimerSync);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    if (g_ShowLights) renderLights();
+    if (g_ShowLightCenters) renderLights();
     if (g_ShowLightRange) renderLightRanges();
 }
 
@@ -682,7 +682,7 @@ int showGUI() {
     if (ImGui::Combo("shading", &g_Algorithm, "Forward\0Deferred\0"))
         resetAlgorithms();
     ImGui::Checkbox("rotate lights", &g_RotateLights);
-    ImGui::Checkbox("show lights", &g_ShowLights);
+    ImGui::Checkbox("show lights", &g_ShowLightCenters);
     ImGui::Checkbox("show light range", &g_ShowLightRange);
     if (ImGui::Checkbox("synchronize timers", &g_ExplicitTimerSync)) {
         resetAlgorithms();
@@ -753,7 +753,7 @@ void keyboardChanged(int key, int action, int mods) {
             g_RotateLights = !g_RotateLights;
             break;
         case GLFW_KEY_V:
-            g_ShowLights = !g_ShowLights;
+            g_ShowLightCenters = !g_ShowLightCenters;
             break;
         case GLFW_KEY_K:
             g_ShowLightRange = !g_ShowLightRange;
