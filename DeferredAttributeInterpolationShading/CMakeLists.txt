@@ -6,8 +6,8 @@ Message(STATUS "Processing ${TARGET_NAME}:")
 # ####################################################################################
 # Add source files and shaders
 #
-file(GLOB_RECURSE SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/*.inl ${CMAKE_CURRENT_SOURCE_DIR}/*.h ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
-file(GLOB SHADER_FILES *.vert *.frag *.geom *.tcs *.tes *.mesh)
+file(GLOB_RECURSE SOURCE_FILES *.cpp *.hpp *.inl *.h *.c)
+file(GLOB_RECURSE SHADER_FILES *.vert *.frag *.geom *.tcs *.tes *.mesh)
 
 # ####################################################################################
 # Some build related definitions
