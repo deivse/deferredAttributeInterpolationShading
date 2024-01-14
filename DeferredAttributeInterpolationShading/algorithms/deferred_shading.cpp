@@ -11,25 +11,23 @@
     bool& name = (options[#name] = defaultValue);
 namespace Algorithms {
 
-void DefferedShading::initialize() {
+void DeferredShading::initialize() {
     DECLARE_OPTION(wireModel, false);
     logDebug("Initializing");
     createGBuffer(Variables::WindowSize);
 
+    glLineWidth(2.0);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+    GLuint emptyVAO = 0;
+    glGenVertexArrays(1, &emptyVAO);
+
     // Add rendering passes
     renderPasses.emplace_back(
-      "Pass",
+      "Fill G-Buffer",
       [&]() -> void {
-          // Set OpenGL state variables
           glEnable(GL_DEPTH_TEST);
-          glLineWidth(2.0);
-          glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-          const auto& cameraPosition
-            = Variables::Transform.Camera.getPosition();
-          glUniform3f(getLocation(UniformLocations::CameraPosition), cameraPosition.x, cameraPosition.y, cameraPosition.z);
-
-          //   glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+          glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -38,26 +36,62 @@ void DefferedShading::initialize() {
           Scene::get().spheres.render();
 
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-          //   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-          //   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          //   Tools::Texture::Show2D(colorTextures[0], Variables::WindowSize.x
-          //   / 2,
-          //                          0, Variables::WindowSize.x / 2,
-          //                          Variables::WindowSize.y / 2);
-          //   Tools::Texture::Show2D(colorTextures[1], Variables::WindowSize.x
-          //   / 2,
-          //                          Variables::WindowSize.y / 2,
-          //                          Variables::WindowSize.x / 2,
-          //                          Variables::WindowSize.y / 2);
       },
-      "shader");
+      "01_gbuffer");
+
+    renderPasses.emplace_back(
+      "Deferred Shading",
+      [this, emptyVAO]() {
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+          glClear(GL_COLOR_BUFFER_BIT);
+          glDisable(GL_DEPTH_TEST);
+
+          const auto& cameraPosition
+            = Variables::Transform.Camera.getPosition();
+          glUniform3f(layout::location(layout::Uniforms::CameraPosition),
+                      cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+          for (auto attachment : colorAttachments) {
+              glBindTextureUnit(
+                layout::location(
+                  layout::texSamplerForFBOAttachment(attachment)),
+                getTextureForAttachment(attachment));
+          }
+
+          Scene::get().lights.setUniforms();
+
+          glBindVertexArray(emptyVAO);
+          glDrawArrays(GL_TRIANGLES, 0, 3);
+
+          // TODO: restore depth
+          // glEnable(GL_DEPTH_TEST); 
+      },
+      "02_deferred");
 }
 
-void DefferedShading::createGBuffer(const glm::ivec2& resolution) {
+void DeferredShading::showGBufferTextures() {
+    using Variables::WindowSize;
+    const auto numColorTextures = static_cast<int>(colorTextures.size());
+    const auto numTextures = numColorTextures + 1;
+
+    const auto aspectRatio
+      = static_cast<float>(WindowSize.x) / static_cast<float>(WindowSize.y);
+
+    const auto texWidth = WindowSize.x / numTextures;
+    const auto texHeight = static_cast<int>(static_cast<float>(texWidth) / aspectRatio);
+    const auto xOffset = WindowSize.x - texWidth;
+
+      for (int i = 0; i < numColorTextures; i++) {
+        Tools::Texture::Show2D(
+          colorTextures[i], xOffset, texHeight * i, texWidth, texHeight);
+    }
+
+    Tools::Texture::ShowDepth(depthStencilTex, xOffset, texHeight * numColorTextures,
+                              texWidth, texHeight, 0, 1);
+}
+
+void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
     logDebug("Creating GBuffer ...");
-    std::array colorAttachments{GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
-                                GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
 
     glDeleteTextures(1, &depthStencilTex);
     Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,

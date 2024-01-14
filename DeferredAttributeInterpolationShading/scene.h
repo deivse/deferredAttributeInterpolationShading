@@ -51,6 +51,8 @@ struct Scene
         void update();
         void genRandomRadiuses();
 
+        void setUniforms() const;
+
         template<bool UseOwnShader = true>
         void renderLightRanges() {
             if constexpr (UseOwnShader) {
@@ -102,7 +104,7 @@ struct Scene
     }
 
 private:
-    explicit Scene(int numSpheresPerRow = 20, int numSphereSlices = 10)
+    explicit Scene(int numSpheresPerRow = 6, int numSphereSlices = 20)
       : lights(static_cast<float>(numSpheresPerRow)) {
         spheres.numSpheresPerRow = numSpheresPerRow;
         spheres.numSphereSlices = numSphereSlices;

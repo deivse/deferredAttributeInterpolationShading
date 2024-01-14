@@ -470,7 +470,7 @@ namespace Texture {
     // Name: ShowDepth()
     // Desc:
     //-----------------------------------------------------------------------------
-    inline void ShowDepth(GLuint texID, GLint x, GLint y, GLsizei width,
+    void ShowDepth(GLuint texID, GLint x, GLint y, GLsizei width,
                           GLsizei height, float nearZ, float farZ);
     //-----------------------------------------------------------------------------
     // Name: GetImageData()

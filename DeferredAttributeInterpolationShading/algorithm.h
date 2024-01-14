@@ -161,7 +161,7 @@ protected:
 public:
     // Displays algorithm debug informations. This method is called at the end
     // of Algorithm::run().
-    void debug() {}
+    void debug() { getDerived().debug(); }
 
     // Window resize callback
     void onWindowResized(const glm::ivec2& resolution) {
@@ -174,7 +174,11 @@ public:
         if (!initialized) initialized = reset(true);
 
         timer.start(forceSync);
-        for (auto& renderPass : getRenderPasses()) renderPass.run(forceSync);
+        for (auto& renderPass : getRenderPasses()) {
+            log(spdlog::level::trace, "Starting {} render pass",
+                renderPass.name);
+            renderPass.run(forceSync);
+        }
         timer.stop();
 
         // Render/print debug information

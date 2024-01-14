@@ -1,20 +1,23 @@
 #include <scene.h>
 #include <layout_constants.h>
 
+using Uniforms = layout::Uniforms;
+using UniformBuffers = layout::UniformBuffers;
+
 void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
     // Create random light
     lights.resize(numLights);
     for (int i = 0; i < numLights; i++) {
-        const float positionRange
+        const float radius
           = glm::linearRand(1.0f, maxDistanceFromWorldOrigin);
         const glm::vec3 position
           = glm::normalize(glm::linearRand(glm::vec3(-1.0f), glm::vec3(1.0f)))
-            * positionRange;
+            * radius;
         const float range = glm::linearRand(rangeLimits.x, rangeLimits.y);
 
         lights[i].position = glm::vec4(position, range);
         lights[i].color
-          = glm::vec4(glm::linearRand(glm::vec3(0.0f), glm::vec3(0.5f)), 0.10f);
+          = glm::vec4(glm::linearRand(glm::vec3(0.0f), glm::vec3(0.5f)), 0.40f);
     }
 
     // Create buffer with lights and bind it as GL_UNIFORM_BUFFER to 0
@@ -24,7 +27,7 @@ void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
     glNamedBufferStorage(uniformBuffer, sizeof(Light) * lights.size(),
                          lights.data(), GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_UNIFORM_BUFFER,
-                     getLocation(UniformBufferBindings::Lights), uniformBuffer);
+                     layout::location(UniformBuffers::Lights), uniformBuffer);
 
     // Create vertex array to display all lights
     glDeleteVertexArrays(1, &vertexArray);
@@ -70,9 +73,11 @@ void Scene::Lights::renderLightCenters() {
     glDrawArrays(GL_POINTS, 0, numLights);
 }
 
-void Scene::Lights::update() {
-    glUniform1ui(getLocation(UniformLocations::NumLights), numLights);
+void Scene::Lights::setUniforms() const {
+    glUniform1ui(layout::location(Uniforms::NumLights), numLights);
+}
 
+void Scene::Lights::update() {
     if (!rotate) return;
 
     const float cosAngle = glm::cos(rotationSpeed);
@@ -100,7 +105,7 @@ void Scene::Lights::genRandomRadiuses() {
 void Scene::Spheres::render() {
     // Create texture for scene
     static GLuint texture
-      = Tools::Texture::CreateFromFile("../common/textures/metal01.jpg");
+      = Tools::Texture::CreateFromFile("../../common/textures/metal01.jpg");
 
     // Calculate sphere positions
     const auto numSpheres = static_cast<size_t>(numSpheresPerRow)
@@ -123,7 +128,7 @@ void Scene::Spheres::render() {
           sphereOffsets.size() * sizeof(decltype(sphereOffsets)::value_type),
           &sphereOffsets[0].x, BufferStorageMask::GL_NONE_BIT);
         glBindBufferBase(gl::GLenum::GL_UNIFORM_BUFFER,
-                         getLocation(UniformBufferBindings::SphereOffsets),
+                         layout::location(UniformBuffers::SphereOffsets),
                          sphereOffsetsBuffer);
     }
 
@@ -147,7 +152,8 @@ void Scene::Spheres::render() {
         glEnableVertexArrayAttrib(vertexArray, 0);
     }
 
-    glBindTextureUnit(0, texture);
+    glBindTextureUnit(layout::location(layout::TextureSamplers::Albedo),
+                      texture);
     glBindVertexArray(vertexArray);
 
     glDrawArraysInstanced(GL_TRIANGLES, 0,

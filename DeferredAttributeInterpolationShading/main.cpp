@@ -1,3 +1,4 @@
+#include "argparse.h"
 #include "common.h"
 #include "algorithms/deferred_shading.h"
 #include "scene.h"
@@ -6,8 +7,8 @@
 #include <spdlog/spdlog.h>
 
 using AlgorithmVariant
-  = std::variant<std::unique_ptr<Algorithms::DefferedShading>>;
-AlgorithmVariant g_AlgorithmP{std::make_unique<Algorithms::DefferedShading>()};
+  = std::variant<std::unique_ptr<Algorithms::DeferredShading>>;
+AlgorithmVariant g_AlgorithmP{std::make_unique<Algorithms::DeferredShading>()};
 
 bool g_ShowLightCenters = true;   // Render lights
 bool g_ShowLightRange = false;    // Render lights' ranges
@@ -113,6 +114,7 @@ int showGUI() {
 void compileShaders(void* clientData) {
     spdlog::debug("compileShaders top level function called, calling "
                   "algorithm.reset(true)");
+    glUseProgram(0);
     std::visit([](auto&& algo) { algo->reset(true); }, g_AlgorithmP);
 }
 
@@ -142,11 +144,31 @@ void destroyAlgorithm() {
     std::visit([](auto&& algo) { algo.reset(nullptr); }, g_AlgorithmP);
 }
 
+void setLogLevel(std::string_view levelStr) {
+    if (levelStr == "debug") {
+        spdlog::set_level(spdlog::level::debug);
+    } else if (levelStr == "trace") {
+        spdlog::set_level(spdlog::level::trace);
+    } else if (levelStr == "info") {
+        spdlog::set_level(spdlog::level::info);
+    } else if (levelStr == "warn") {
+        spdlog::set_level(spdlog::level::warn);
+    } else if (levelStr == "err") {
+        spdlog::set_level(spdlog::level::err);
+    } else if (levelStr == "critical") {
+        spdlog::set_level(spdlog::level::critical);
+    } else if (levelStr == "off") {
+        spdlog::set_level(spdlog::level::off);
+    } else {
+        spdlog::warn("Unknown log level {}, using default", levelStr);
+    }
+}
+
 //-----------------------------------------------------------------------------
 // Name: main()
 // Desc:
 //-----------------------------------------------------------------------------
-int main() {
+int main(int argc, char** argv) {
     constexpr int OGL_CONFIGURATION[] = {GLFW_CONTEXT_VERSION_MAJOR,
                                          4,
                                          GLFW_CONTEXT_VERSION_MINOR,
@@ -162,8 +184,14 @@ int main() {
                                          0};
 
     printf("%s\n", help_message);
-    spdlog::set_level(spdlog::level::trace);
+    spdlog::set_level(spdlog::level::debug);
     spdlog::set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
+
+    auto args = argparse(argc, argv);
+    if (auto it = args.keyValueArgs.find("loglevel");
+        it != args.keyValueArgs.end()) {
+        setLogLevel(it->second);
+    }
 
     return common_main(
       1200, 900, "[PGR2] Cornell Box",
