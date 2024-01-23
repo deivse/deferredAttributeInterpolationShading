@@ -10,14 +10,14 @@ layout(binding = 1) uniform SphereCentersBuffer { vec4 sphereOffsets[2048]; };
 uniform mat4 u_MVPMatrix;
 
 out Vertex {
-    vec4 position;
+    vec3 position;
     smooth vec3 normal;
     vec2 uv;
 };
 
 void main(void) {
-    position = vec4(a_Vertex.xyz + sphereOffsets[gl_InstanceID].xyz, 1.0);
+    position = a_Vertex.xyz + sphereOffsets[gl_InstanceID].xyz;
     normal = normalize(a_Vertex.xyz);
     uv = a_Vertex.xy;
-    gl_Position = u_MVPMatrix * position;
+    gl_Position = u_MVPMatrix * vec4(position, 1.0);
 }

@@ -3,6 +3,8 @@
 
 #include <algorithm.h>
 
+#include <glbinding/gl/gl.h>
+
 namespace Algorithms {
 class DeferredShading : public Algorithm<DeferredShading>
 {
@@ -13,8 +15,12 @@ class DeferredShading : public Algorithm<DeferredShading>
     std::vector<RenderPass> renderPasses;
 
     GLuint gBufferFBO = 0;
+
+    // 0 = color, 1 = normal, 2 = position
     constexpr static std::array<GLenum, 3> colorAttachments{
       GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+    std::array<GLenum, colorAttachments.size()> colorTextureFormats{
+      GL_RGBA8, GL_RGBA32F, GL_RGBA32F};
     std::array<GLuint, colorAttachments.size()> colorTextures{};
     GLuint depthStencilTex{};
 

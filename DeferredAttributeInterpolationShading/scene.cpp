@@ -17,7 +17,7 @@ void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
 
         lights[i].position = glm::vec4(position, range);
         lights[i].color
-          = glm::vec4(glm::linearRand(glm::vec3(0.0f), glm::vec3(0.5f)), 0.40f);
+          = glm::vec4(glm::linearRand(glm::vec3(0.1f), glm::vec3(0.8f)), 0.20f);
     }
 
     // Create buffer with lights and bind it as GL_UNIFORM_BUFFER to 0

@@ -8,10 +8,10 @@ layout(location = 1) out vec4 VertexNormal;
 layout(location = 2) out vec4 VertexPosition;
 
 layout(location = 1) uniform uint NumLights;
-layout (binding = 3) uniform sampler2D AlbedoSampler;
+layout(binding = 3) uniform sampler2D AlbedoSampler;
 
 in Vertex {
-    vec4 position;
+    vec3 position;
     smooth vec3 normal;
     vec2 uv;
 };
@@ -19,5 +19,5 @@ in Vertex {
 void main(void) {
     SphereColor = texture(AlbedoSampler, uv);
     VertexNormal.xyz = normal;
-    VertexPosition = position;
+    VertexPosition.xyz = position;
 }

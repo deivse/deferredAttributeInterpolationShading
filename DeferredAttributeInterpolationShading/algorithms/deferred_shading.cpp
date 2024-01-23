@@ -12,7 +12,8 @@
 namespace Algorithms {
 
 void DeferredShading::initialize() {
-    DECLARE_OPTION(wireModel, false);
+    DECLARE_OPTION(restoreDepth, true);
+
     logDebug("Initializing");
     createGBuffer(Variables::WindowSize);
 
@@ -46,10 +47,10 @@ void DeferredShading::initialize() {
           glClear(GL_COLOR_BUFFER_BIT);
           glDisable(GL_DEPTH_TEST);
 
-          const auto& cameraPosition
-            = Variables::Transform.Camera.getPosition();
-          glUniform3f(layout::location(layout::Uniforms::CameraPosition),
-                      cameraPosition.x, cameraPosition.y, cameraPosition.z);
+          const auto cameraPosition = Variables::Transform.ModelViewInverse
+                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+          glUniform3fv(layout::location(layout::Uniforms::CameraPosition), 1,
+                       &cameraPosition.x);
 
           for (auto attachment : colorAttachments) {
               glBindTextureUnit(
@@ -63,10 +64,21 @@ void DeferredShading::initialize() {
           glBindVertexArray(emptyVAO);
           glDrawArrays(GL_TRIANGLES, 0, 3);
 
-          // TODO: restore depth
-          // glEnable(GL_DEPTH_TEST); 
+          glEnable(GL_DEPTH_TEST);
       },
       "02_deferred");
+    renderPasses.emplace_back(
+      "Restore Z-Buffer",
+      [&]() -> void {
+          glBindFramebuffer(GL_READ_FRAMEBUFFER, gBufferFBO);
+          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+          glBlitFramebuffer(0, 0, Variables::WindowSize.x,
+                            Variables::WindowSize.y, 0, 0,
+                            Variables::WindowSize.x, Variables::WindowSize.y,
+                            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      },
+      &restoreDepth);
 }
 
 void DeferredShading::showGBufferTextures() {
@@ -78,16 +90,18 @@ void DeferredShading::showGBufferTextures() {
       = static_cast<float>(WindowSize.x) / static_cast<float>(WindowSize.y);
 
     const auto texWidth = WindowSize.x / numTextures;
-    const auto texHeight = static_cast<int>(static_cast<float>(texWidth) / aspectRatio);
+    const auto texHeight
+      = static_cast<int>(static_cast<float>(texWidth) / aspectRatio);
     const auto xOffset = WindowSize.x - texWidth;
 
-      for (int i = 0; i < numColorTextures; i++) {
-        Tools::Texture::Show2D(
-          colorTextures[i], xOffset, texHeight * i, texWidth, texHeight);
+    for (int i = 0; i < numColorTextures; i++) {
+        Tools::Texture::Show2D(colorTextures[i], xOffset, texHeight * i,
+                               texWidth, texHeight);
     }
 
-    Tools::Texture::ShowDepth(depthStencilTex, xOffset, texHeight * numColorTextures,
-                              texWidth, texHeight, 0, 1);
+    Tools::Texture::ShowDepth(depthStencilTex, xOffset,
+                              texHeight * numColorTextures, texWidth, texHeight,
+                              0, 1);
 }
 
 void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
@@ -99,8 +113,11 @@ void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
 
     glDeleteTextures(static_cast<int>(colorTextures.size()),
                      colorTextures.data());
-    for (auto& texture : colorTextures) {
-        Tools::Texture::Create2D(texture, gl::GLenum::GL_RGBA8, resolution);
+
+    for (uint8_t i = 0; i < static_cast<uint8_t>(colorAttachments.size());
+         i++) {
+        Tools::Texture::Create2D(colorTextures[i], colorTextureFormats[i],
+                                 resolution);
     }
 
     // Create a framebuffer object ...

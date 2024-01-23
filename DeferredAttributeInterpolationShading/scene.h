@@ -22,14 +22,14 @@ struct Light
 
 struct Scene
 {
-    constexpr static auto MAX_LIGHTS = 1024;
+    constexpr static auto MAX_LIGHTS = 2048;
 
     struct Lights
     {
         GLuint uniformBuffer = 0; // Uniform buffer with lights
         GLuint vertexArray
           = 0; // Vertex array with light sphere (attenuation) geometry
-        int numLights = 10; // Number of lights currently used in the scene
+        int numLights = 64; // Number of lights currently used in the scene
         float rotationSpeed = 0.01;        // Speed of light moving (rotation)
         glm::vec2 rangeLimits{0.2f, 2.0f}; // Light range limits
         bool rotate = true;                // Rotate lights
@@ -95,7 +95,6 @@ struct Scene
     Scene(Scene&&) = default;
     Scene& operator=(Scene&&) = default;
 
-    // TODO: update stuff when params change
     void update() { lights.update(); }
 
     static Scene& get() {
@@ -104,7 +103,7 @@ struct Scene
     }
 
 private:
-    explicit Scene(int numSpheresPerRow = 6, int numSphereSlices = 20)
+    explicit Scene(int numSpheresPerRow = 5, int numSphereSlices = 20)
       : lights(static_cast<float>(numSpheresPerRow)) {
         spheres.numSpheresPerRow = numSpheresPerRow;
         spheres.numSphereSlices = numSphereSlices;
