@@ -39,16 +39,16 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     // Calculate diffuse color component
     lightDir = normalize(lightDir);
     float NdotL = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = color.rgb * diffSpecColor.rgb * NdotL;
+    vec3 lightContribution = color.rgb * diffSpecColor.rgb * NdotL;
 
     // Calculate specular color component
     vec3 viewDir = normalize(u_CameraPosition - vertex);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float NdotH = pow(max(dot(normal, halfwayDir), 0.0), 5.0);
-    vec3 specular = color.aaa * diffSpecColor.a * NdotH;
+    // Multiply by NdotL to 
+    lightContribution += color.aaa * diffSpecColor.a * NdotH * NdotL;
 
-    // Sum
-    return (diffuse + specular) * attenuation;
+    return lightContribution * attenuation;
 }
 
 void main(void) {
