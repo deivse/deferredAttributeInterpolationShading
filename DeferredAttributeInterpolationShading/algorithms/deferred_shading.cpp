@@ -9,10 +9,15 @@
 
 #define DECLARE_OPTION(name, defaultValue) \
     bool& name = (options[#name] = defaultValue);
+
+#define DECLARE_SHADER_ONLY_OPTION(name, defaultValue) \
+    options[#name] = defaultValue;
+
 namespace Algorithms {
 
 void DeferredShading::initialize() {
     DECLARE_OPTION(restoreDepth, true);
+    DECLARE_SHADER_ONLY_OPTION(discardPixelsWithoutGeometry, true);
 
     logDebug("Initializing");
     createGBuffer(Variables::WindowSize);

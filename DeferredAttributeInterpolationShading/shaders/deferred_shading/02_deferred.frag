@@ -45,7 +45,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     vec3 viewDir = normalize(u_CameraPosition - vertex);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float NdotH = pow(max(dot(normal, halfwayDir), 0.0), 5.0);
-    // Multiply by NdotL to 
+    // Multiply by NdotL to
     lightContribution += color.aaa * diffSpecColor.a * NdotH * NdotL;
 
     return lightContribution * attenuation;
@@ -57,6 +57,14 @@ void main(void) {
     // (diffuse.rgb, specular)
     vec4 diffSpecColor = texelFetch(ColorSampler, pixel, 0);
     vec4 position = texelFetch(VertexSampler, pixel, 0);
+
+#ifdef discardPixelsWithoutGeometry
+    // OPTIMIZATION: Don't calculate lighting for pixels that don't contain any
+    // geometry
+    if (position.w == 0) {
+        discard;
+    }
+#endif
 
     FragColor = vec4(vec3(0.0), 1.0);
     for (uint i = 0; i < u_NumLights; ++i) {

@@ -19,5 +19,9 @@ in Vertex {
 void main(void) {
     SphereColor = texture(AlbedoSampler, uv);
     VertexNormal.xyz = normal;
+#ifdef discardPixelsWithoutGeometry
+    VertexPosition = vec4(position, 1);
+#else
     VertexPosition.xyz = position;
+#endif
 }
