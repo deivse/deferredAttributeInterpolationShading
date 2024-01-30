@@ -33,7 +33,9 @@ void DeferredAttributeInterpolationShading::initialize() {
           Scene::get().update();
           Scene::get().spheres.render();
       },
-      "01_gbuffer");
+      "01_dais_depth_prepass");
+
+    
 }
 
 void DeferredAttributeInterpolationShading::createBuffers(const glm::ivec2& resolution) {

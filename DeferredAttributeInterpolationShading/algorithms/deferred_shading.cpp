@@ -35,7 +35,7 @@ void DeferredShading::initialize() {
           Scene::get().update();
           Scene::get().spheres.render();
       },
-      "01_gbuffer");
+      "01_ds_gbuffer");
 
     renderPasses.emplace_back(
       "Deferred Shading",
@@ -63,7 +63,7 @@ void DeferredShading::initialize() {
 
           glEnable(GL_DEPTH_TEST);
       },
-      "02_deferred");
+      "02_ds_deferred");
     renderPasses.emplace_back(
       "Restore Z-Buffer",
       [&]() -> void {
