@@ -1,4 +1,6 @@
 #include "deferred_shading.h"
+#include "option_declaration_macros.h"
+
 #include "models/cornell_box.h"
 #include "scene.h"
 
@@ -6,12 +8,6 @@
 #include <common.h>
 
 #include <layout_constants.h>
-
-#define DECLARE_OPTION(name, defaultValue) \
-    bool& name = (options[#name] = defaultValue);
-
-#define DECLARE_SHADER_ONLY_OPTION(name, defaultValue) \
-    options[#name] = defaultValue;
 
 namespace Algorithms {
 
@@ -36,12 +32,8 @@ void DeferredShading::initialize() {
           glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-          glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
           Scene::get().update();
           Scene::get().spheres.render();
-
-          glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       },
       "01_gbuffer");
 

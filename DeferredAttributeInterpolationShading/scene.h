@@ -32,16 +32,18 @@ struct Scene
         int numLights = 64; // Number of lights currently used in the scene
         float rotationSpeed = 0.01;        // Speed of light moving (rotation)
         glm::vec2 rangeLimits{0.2f, 2.0f}; // Light range limits
-        bool rotate = true;                // Rotate lights
         std::vector<Light> lights;
+        bool rotate = true;           // Rotate lights
+        bool showLightCenters = true; // Render light centers
+        bool showLightRanges = false; // Render light ranges
 
-        struct LightRanges
+        struct LightRangesData
         {
             GLuint program = 0;
             GLuint vertexArray = 0;
             GLsizei numVertices = 0;
 
-            LightRanges();
+            LightRangesData();
         } ranges{};
 
         explicit Lights(float maxDistanceFromWorldOrigin) {
@@ -71,6 +73,11 @@ struct Scene
         }
 
         void renderLightCenters();
+
+        void render() {
+            if (showLightCenters) renderLightCenters();
+            if (showLightRanges) renderLightRanges();
+        }
     } lights;
 
     struct Spheres

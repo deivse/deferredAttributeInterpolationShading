@@ -131,6 +131,8 @@ class Algorithm
     OptionsMap& getOptions() { return getDerived().options; }
 
 protected:
+    using AlgorithmCRTPBaseT = Algorithm<DerivedT>;
+
     template<typename... Args>
     void log(spdlog::level::level_enum level,
              spdlog::format_string_t<Args...> fmt, Args&&... args) {

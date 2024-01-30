@@ -38,7 +38,7 @@ public:
     void initialize();
     void debug() { showGBufferTextures(); };
 
-    friend class Algorithm<DeferredShading>;
+    friend DeferredShading::AlgorithmCRTPBaseT;
 };
 } // namespace Algorithms
 

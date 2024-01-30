@@ -8,8 +8,7 @@ void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
     // Create random light
     lights.resize(numLights);
     for (int i = 0; i < numLights; i++) {
-        const float radius
-          = glm::linearRand(1.0f, maxDistanceFromWorldOrigin);
+        const float radius = glm::linearRand(1.0f, maxDistanceFromWorldOrigin);
         const glm::vec3 position
           = glm::normalize(glm::linearRand(glm::vec3(-1.0f), glm::vec3(1.0f)))
             * radius;
@@ -39,7 +38,7 @@ void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
     glEnableVertexArrayAttrib(vertexArray, 0);
 }
 
-Scene::Lights::LightRanges::LightRanges() {
+Scene::Lights::LightRangesData::LightRangesData() {
     Tools::Shader::CreateShaderProgramFromFile(
       program, "light_range.vert", nullptr, nullptr, nullptr, "light.frag");
     // Create buffer with sphere geometry

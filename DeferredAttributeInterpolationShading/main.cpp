@@ -1,31 +1,41 @@
 #include "argparse.h"
 #include "common.h"
 #include "algorithms/deferred_shading.h"
+#include "algorithms/deferred_attribute_interpolation_shading.h"
 #include "scene.h"
 #include <variant>
 
 #include <spdlog/spdlog.h>
 
-using AlgorithmVariant
-  = std::variant<std::unique_ptr<Algorithms::DeferredShading>>;
-AlgorithmVariant g_AlgorithmP{std::make_unique<Algorithms::DeferredShading>()};
+namespace Algorithms {
+using DAISUniquePtr = std::unique_ptr<DeferredAttributeInterpolationShading>;
+using DSUniquePtr = std::unique_ptr<DeferredShading>;
 
-bool g_ShowLightCenters = true;   // Render lights
-bool g_ShowLightRange = false;    // Render lights' ranges
+using Variant = std::variant<DSUniquePtr, DAISUniquePtr>;
+} // namespace Algorithms
+
+enum class AlgorithmsEnum : int
+{
+    DS = 0,
+    DAIS = 1,
+};
+
+Algorithms::Variant g_AlgorithmVariant{
+  std::make_unique<Algorithms::DeferredShading>()};
+
 bool g_ExplicitTimerSync = false; // Explicit synchronization will be made
                                   // before any performance measurement
 
 void display() {
-    std::visit([](auto&& algo) { algo->run(); }, g_AlgorithmP);
-    if (g_ShowLightCenters) Scene::get().lights.renderLightCenters();
-    if (g_ShowLightRange) Scene::get().lights.renderLightRanges();
+    std::visit([](auto&& algo) { algo->run(); }, g_AlgorithmVariant);
+    Scene::get().lights.render(); // Render light centers/ranges if enabled
 }
 
 void init() {
     // Default scene distance
     Variables::Transform.SceneZOffset = 8.0f;
 
-    std::visit([](auto&& algo) { algo->initialize(); }, g_AlgorithmP);
+    std::visit([](auto&& algo) { algo->initialize(); }, g_AlgorithmVariant);
 
     // Load shader program
     compileShaders();
@@ -34,7 +44,8 @@ void init() {
 constexpr const char* help_message = "no help here";
 
 void resetAlgorithm() {
-    std::visit([](auto&& algo) { algo->reset(); }, g_AlgorithmP);
+    // this is NOT std::unique_ptr::reset!
+    std::visit([](auto&& algo) { algo->reset(); }, g_AlgorithmVariant);
 }
 
 int showGUI() {
@@ -42,50 +53,70 @@ int showGUI() {
     const int oneInt = 1;
     const int itemWidth = 140 * IMGUI_RESIZE_FACTOR;
 
+    static AlgorithmsEnum algorithm
+      = std::holds_alternative<Algorithms::DSUniquePtr>(g_AlgorithmVariant)
+          ? AlgorithmsEnum::DS
+          : AlgorithmsEnum::DAIS;
+
     ImGui::Begin("Render");
     ImGui::SetWindowSize(glm::vec2(220, menuHeight) * IMGUI_RESIZE_FACTOR,
                          ImGuiCond_Always);
     ImGui::SetNextItemWidth(itemWidth);
-    // if (ImGui::Combo("shading", &g_Algorithm, "Forward\0Deferred\0"))
-    //     resetAlgorithm();
-    ImGui::Checkbox("rotate lights", &Scene::get().lights.rotate);
-    ImGui::Checkbox("show lights", &g_ShowLightCenters);
-    ImGui::Checkbox("show light range", &g_ShowLightRange);
-    if (ImGui::Checkbox("synchronize timers", &g_ExplicitTimerSync)) {
+    if (ImGui::Combo(
+          "Shading", reinterpret_cast<int*>(&algorithm),
+          "DeferredShading\0Deferred Attribute Interpolation Shading\0")) {
+        switch (algorithm) {
+            case AlgorithmsEnum::DS:
+                g_AlgorithmVariant
+                  = std::make_unique<Algorithms::DeferredShading>();
+                break;
+            case AlgorithmsEnum::DAIS:
+                g_AlgorithmVariant = std::make_unique<
+                  Algorithms::DeferredAttributeInterpolationShading>();
+                break;
+        }
+        std::visit([](auto&& algo) { algo->initialize(); }, g_AlgorithmVariant);
+        resetAlgorithm();
+    }
+    ImGui::Checkbox("Rotate lights", &Scene::get().lights.rotate);
+    ImGui::Checkbox("Show light centers",
+                    &Scene::get().lights.showLightCenters);
+    ImGui::Checkbox("Show light ranges", &Scene::get().lights.showLightRanges);
+    if (ImGui::Checkbox("Synchronize timers", &g_ExplicitTimerSync)) {
         resetAlgorithm();
     }
     ImGui::SameLine(170.0f * IMGUI_RESIZE_FACTOR, -10.0f * IMGUI_RESIZE_FACTOR);
-    if (ImGui::Button("reset")) resetAlgorithm();
+    if (ImGui::Button("Reset")) resetAlgorithm();
 
     ImGui::Separator();
-    ImGui::Text("SPHERES");
+    ImGui::Text("Spheres");
     ImGui::SetNextItemWidth(itemWidth);
     auto& numSpheresPerRow = Scene::get().spheres.numSpheresPerRow;
-    if (ImGui::InputScalar("per row", ImGuiDataType_S32, &numSpheresPerRow,
-                           &oneInt)) {
+    if (ImGui::InputScalar("#(Spheres)/row", ImGuiDataType_S32,
+                           &numSpheresPerRow, &oneInt)) {
         numSpheresPerRow = glm::clamp(numSpheresPerRow, 1, 100);
         Scene::get().lights.create(static_cast<float>(numSpheresPerRow));
         resetAlgorithm();
     }
     ImGui::SetNextItemWidth(itemWidth);
     auto& numSphereSlices = Scene::get().spheres.numSphereSlices;
-    if (ImGui::InputScalar("slices", ImGuiDataType_S32, &numSphereSlices,
+    if (ImGui::InputScalar("#(Slices)", ImGuiDataType_S32, &numSphereSlices,
                            &oneInt)) {
         numSphereSlices = glm::clamp(numSphereSlices, 5, 100);
         resetAlgorithm();
     }
 
     ImGui::Separator();
-    ImGui::Text("LIGHTS");
+    ImGui::Text("Lights");
     ImGui::SetNextItemWidth(itemWidth);
     auto& numLights = Scene::get().lights.numLights;
-    if (ImGui::InputScalar("count", ImGuiDataType_S32, &numLights, &oneInt)) {
+    if (ImGui::InputScalar("Count", ImGuiDataType_S32, &numLights, &oneInt)) {
         numLights = glm::clamp(numLights, 1, Scene::MAX_LIGHTS);
         Scene::get().lights.create(static_cast<float>(numSpheresPerRow));
         resetAlgorithm();
     }
     ImGui::SetNextItemWidth(itemWidth);
-    ImGui::SliderFloat("speed", &Scene::get().lights.rotationSpeed, 0.0f, 0.2f);
+    ImGui::SliderFloat("Speed", &Scene::get().lights.rotationSpeed, 0.0f, 0.2f);
 
     ImGui::SetNextItemWidth(56 * IMGUI_RESIZE_FACTOR);
     auto& lightRangeLimits = Scene::get().lights.rangeLimits;
@@ -102,11 +133,11 @@ int showGUI() {
         resetAlgorithm();
     }
     ImGui::SameLine();
-    ImGui::Text("range");
+    ImGui::Text("Range");
     ImGui::End();
 
     std::visit([](auto&& algo) { algo->gui(glm::ivec2(235, 10), 240); },
-               g_AlgorithmP);
+               g_AlgorithmVariant);
 
     return menuHeight;
 }
@@ -115,7 +146,7 @@ void compileShaders(void* clientData) {
     spdlog::debug("compileShaders top level function called, calling "
                   "algorithm.reset(true)");
     glUseProgram(0);
-    std::visit([](auto&& algo) { algo->reset(true); }, g_AlgorithmP);
+    std::visit([](auto&& algo) { algo->reset(true); }, g_AlgorithmVariant);
 }
 
 //-----------------------------------------------------------------------------
@@ -136,12 +167,12 @@ void windowResized(const glm::ivec2& resolution) {
     spdlog::trace("Window resized");
     std::visit(
       [&resolution](auto&& algo) { algo->onWindowResized(resolution); },
-      g_AlgorithmP);
+      g_AlgorithmVariant);
 }
 
 void destroyAlgorithm() {
     spdlog::trace("Destroying algorithm");
-    std::visit([](auto&& algo) { algo.reset(nullptr); }, g_AlgorithmP);
+    std::visit([](auto&& algo) { algo.reset(nullptr); }, g_AlgorithmVariant);
 }
 
 void setLogLevel(std::string_view levelStr) {
