@@ -9,24 +9,33 @@
 
 namespace Algorithms {
 
-void DeferredAttributeInterpolationShading::initialize() {
-    DECLARE_OPTION(restoreDepth, true);
-    DECLARE_SHADER_ONLY_OPTION(discardPixelsWithoutGeometry, true);
+DeferredAttributeInterpolationShading::
+  ~DeferredAttributeInterpolationShading() {
+    glDeleteFramebuffers(1, &FBO);
+    glDeleteVertexArrays(1, &emptyVAO);
+    glDeleteBuffers(1, &settingsUniformBuffer);
+    glDeleteBuffers(1, &triangleSSBO);
 
+    glDeleteTextures(1, &cacheTexture);
+    glDeleteTextures(1, &locksTexture);
+    glDeleteTextures(1, &triangleAddressFBOTexture);
+}
+
+void DeferredAttributeInterpolationShading::initialize() {
     logDebug("Initializing");
-    createBuffers(Variables::WindowSize);
+    createHashTableResources();
+    createTriangleBuffer();
+    createFBO(Variables::WindowSize);
 
     glLineWidth(2.0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-    GLuint emptyVAO = 0;
     glGenVertexArrays(1, &emptyVAO);
 
     // Add rendering passes
     renderPasses.emplace_back(
       "Depth Prepass",
       [&]() -> void {
-          glEnable(GL_DEPTH_TEST);
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
           glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -35,42 +44,110 @@ void DeferredAttributeInterpolationShading::initialize() {
       },
       "01_dais_depth_prepass");
 
-    
+    renderPasses.emplace_back(
+      "Geometry Pass",
+      [&]() -> void {
+          glDepthFunc(GL_EQUAL);
+          glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
+          glDisable(GL_DITHER);
+
+          Scene::get().update();
+          Scene::get().spheres.render();
+          glDepthFunc(GL_LESS);
+          glEnable(GL_DITHER);
+
+      },
+      "02_dais_geometry_pass");
+
+    renderPasses.emplace_back(
+      "Shading Pass",
+      [&]() -> void {
+          glDisable(GL_DEPTH_TEST);
+          glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO);
+          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+          glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
+                              gl::GLenum::GL_COLOR_ATTACHMENT0)),
+                            triangleAddressFBOTexture);
+
+          glBindVertexArray(emptyVAO);
+          glDrawArrays(GL_TRIANGLES, 0, 3);
+
+          glEnable(GL_DEPTH_TEST);
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      },
+      "04_dais_shading_pass");
 }
 
-void DeferredAttributeInterpolationShading::createBuffers(const glm::ivec2& resolution) {
-    logDebug("(Re)creating Buffers ...");
+void DeferredAttributeInterpolationShading::createFBO(
+  const glm::ivec2& resolution) {
+    logDebug("Creating FBO...");
 
-    // glDeleteTextures(1, &depthStencilTex);
-    // Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,
-    //                          resolution);
+    Tools::Texture::Create2D(triangleAddressFBOTexture, GL_R32UI, resolution);
 
-    // glDeleteTextures(static_cast<int>(colorTextures.size()),
-    //                  colorTextures.data());
+    glDeleteFramebuffers(1, &FBO);
+    glCreateFramebuffers(1, &FBO);
 
-    // for (uint8_t i = 0; i < static_cast<uint8_t>(colorAttachments.size());
-    //      i++) {
-    //     Tools::Texture::Create2D(colorTextures[i], colorTextureFormats[i],
-    //                              resolution);
-    // }
 
-    // // Create a framebuffer object ...
-    // glDeleteFramebuffers(1, &gBufferFBO);
-    // glCreateFramebuffers(1, &gBufferFBO);
-    // glNamedFramebufferDrawBuffers(gBufferFBO, colorAttachments.size(),
-    //                               colorAttachments.data());
+    constexpr auto colorAttachment0 = gl::GLenum::GL_COLOR_ATTACHMENT0;
+    glNamedFramebufferDrawBuffers(FBO, 1, &colorAttachment0);
 
-    // // and attach color and depth textures
-    // for (size_t i = 0; i < colorAttachments.size(); i++) {
-    //     glNamedFramebufferTexture(gBufferFBO, colorAttachments[i],
-    //                               colorTextures[i], 0);
-    // }
-    // glNamedFramebufferTexture(
-    //   gBufferFBO, gl::GLenum::GL_DEPTH_STENCIL_ATTACHMENT, depthStencilTex, 0);
+    glNamedFramebufferTexture(FBO, GL_COLOR_ATTACHMENT0,
+                              triangleAddressFBOTexture, 0);
 
-    // assert(glGetError() == GL_NO_ERROR);
-    // assert(glCheckNamedFramebufferStatus(gBufferFBO, GL_FRAMEBUFFER)
-    //        == GL_FRAMEBUFFER_COMPLETE);
+    assert(glGetError() == GL_NO_ERROR);
+    assert(glCheckNamedFramebufferStatus(FBO, GL_FRAMEBUFFER)
+           == GL_FRAMEBUFFER_COMPLETE);
 }
 
+void DeferredAttributeInterpolationShading::createHashTableResources() {
+    logDebug("Creating cache buffers...");
+
+    constexpr auto createAndBindImageTexture
+      = [](GLuint& texture, const gl::GLenum format,
+           const GLsizei hashTableSize) {
+            Tools::Texture::Create1D(texture, format, hashTableSize);
+            glBindImageTexture(layout::location(layout::ImageUnits::DAIS_Cache),
+                               texture, 0, GL_FALSE, 0, GL_READ_WRITE, format);
+        };
+
+    createAndBindImageTexture(cacheTexture, gl::GLenum::GL_RGBA32UI,
+                              hashTableSize);
+    createAndBindImageTexture(locksTexture, gl::GLenum::GL_R32UI,
+                              hashTableSize);
+
+    settings.bitwiseModHashSize = hashTableSize - 1;
+
+    glDeleteBuffers(1, &settingsUniformBuffer);
+    glCreateBuffers(1, &settingsUniformBuffer);
+    glNamedBufferStorage(settingsUniformBuffer, sizeof(Settings), &settings,
+                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER,
+                     layout::location(layout::UniformBuffers::DAIS_Settings),
+                     settingsUniformBuffer);
+}
+
+void DeferredAttributeInterpolationShading::createTriangleBuffer() {
+    logDebug("Creating triangle buffer...");
+
+    glDeleteBuffers(1, &triangleSSBO);
+    glCreateBuffers(1, &triangleSSBO);
+
+    constexpr auto WRITE_INDEX_SIZE = 4;
+    constexpr auto TRIANGLE_SIZE = 96;
+    constexpr auto MAX_TRIANGLE_COUNT = 10000;
+
+    constexpr auto dataSize
+      = WRITE_INDEX_SIZE + TRIANGLE_SIZE * MAX_TRIANGLE_COUNT;
+
+    std::array<std::byte, dataSize> data{}; 
+
+    glNamedBufferData(triangleSSBO, dataSize, data.data(),
+                      gl::GLenum::GL_STATIC_COPY);
+    glBindBufferBase(
+      GL_SHADER_STORAGE_BUFFER,
+      layout::location(layout::ShaderStorageBuffers::DAIS_Triangles),
+      triangleSSBO);
+}
 } // namespace Algorithms

@@ -9,7 +9,12 @@ using namespace gl;
 enum class UniformBuffers : GLuint
 {
     Lights = 0,
-    SphereOffsets
+    SphereOffsets,
+    DAIS_Settings
+};
+
+enum class ShaderStorageBuffers: GLuint {
+    DAIS_Triangles = 0
 };
 
 enum class Uniforms : GLuint
@@ -18,23 +23,29 @@ enum class Uniforms : GLuint
     NumLights
 };
 
-enum class TextureSamplers : GLuint
+enum class TextureUnits : GLuint
 {
-    /// @warning keep all Deferred* samplers corresponding to FBO layout at
+    /// @warning keep all DS_* samplers corresponding to FBO layout at
     /// first positions
-    DeferredColor = 0,
-    DeferredNormal,
-    DeferredVertex,
+    DS_Color_DAIS_TriangleAddress = 0,
+    DS_Normal,
+    DS_Vertex,
     Albedo,
 };
 
-constexpr TextureSamplers texSamplerForFBOAttachment(GLenum colorAttachment) {
+enum class ImageUnits : GLuint
+{
+    DAIS_Cache = 0,
+    DAIS_Locks,
+};
+
+constexpr TextureUnits texSamplerForFBOAttachment(GLenum colorAttachment) {
     if (colorAttachment < gl::GLenum::GL_COLOR_ATTACHMENT0
         || colorAttachment > gl::GLenum::GL_COLOR_ATTACHMENT31)
         throw;
-    if (static_cast<GLuint>(TextureSamplers::DeferredColor) != 0) throw;
+    if (static_cast<GLuint>(TextureUnits::DS_Color_DAIS_TriangleAddress) != 0) throw;
 
-    return static_cast<TextureSamplers>(
+    return static_cast<TextureUnits>(
       static_cast<GLuint>(colorAttachment)
       - static_cast<GLuint>(gl::GLenum::GL_COLOR_ATTACHMENT0));
 }

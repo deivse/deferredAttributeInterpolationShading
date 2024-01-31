@@ -11,6 +11,14 @@
 
 namespace Algorithms {
 
+DeferredShading::~DeferredShading() {
+    glDeleteVertexArrays(1, &emptyVAO);
+    glDeleteFramebuffers(1, &gBufferFBO);
+    glDeleteTextures(1, &depthStencilTex);
+    glDeleteTextures(static_cast<int>(colorTextures.size()),
+                     colorTextures.data());
+}
+
 void DeferredShading::initialize() {
     DECLARE_OPTION(restoreDepth, true);
     DECLARE_SHADER_ONLY_OPTION(discardPixelsWithoutGeometry, true);
@@ -21,7 +29,6 @@ void DeferredShading::initialize() {
     glLineWidth(2.0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-    GLuint emptyVAO = 0;
     glGenVertexArrays(1, &emptyVAO);
 
     // Add rendering passes
@@ -39,7 +46,7 @@ void DeferredShading::initialize() {
 
     renderPasses.emplace_back(
       "Deferred Shading",
-      [this, emptyVAO]() {
+      [this]() {
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
           glClear(GL_COLOR_BUFFER_BIT);
           glDisable(GL_DEPTH_TEST);
@@ -104,12 +111,8 @@ void DeferredShading::showGBufferTextures() {
 void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
     logDebug("Creating GBuffer ...");
 
-    glDeleteTextures(1, &depthStencilTex);
     Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,
                              resolution);
-
-    glDeleteTextures(static_cast<int>(colorTextures.size()),
-                     colorTextures.data());
 
     for (uint8_t i = 0; i < static_cast<uint8_t>(colorAttachments.size());
          i++) {

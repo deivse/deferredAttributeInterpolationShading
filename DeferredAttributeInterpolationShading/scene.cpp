@@ -151,8 +151,7 @@ void Scene::Spheres::render() {
         glEnableVertexArrayAttrib(vertexArray, 0);
     }
 
-    glBindTextureUnit(layout::location(layout::TextureSamplers::Albedo),
-                      texture);
+    glBindTextureUnit(layout::location(layout::TextureUnits::Albedo), texture);
     glBindVertexArray(vertexArray);
 
     glDrawArraysInstanced(GL_TRIANGLES, 0,

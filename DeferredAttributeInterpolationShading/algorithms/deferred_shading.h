@@ -14,6 +14,7 @@ class DeferredShading : public Algorithm<DeferredShading>
     OptionsMap options;
     std::vector<RenderPass> renderPasses;
 
+    GLuint emptyVAO = 0;
     GLuint gBufferFBO = 0;
 
     // 0 = color, 1 = normal, 2 = position
@@ -32,6 +33,8 @@ class DeferredShading : public Algorithm<DeferredShading>
     void showGBufferTextures();
 
 public:
+    ~DeferredShading();
+
     void windowResized(const glm::ivec2& resolution) {
         createGBuffer(resolution);
     }
