@@ -1472,7 +1472,7 @@ namespace Texture {
     // Desc:
     //-----------------------------------------------------------------------------
     void ShowDepth(GLuint texID, GLint x, GLint y, GLsizei width,
-                          GLsizei height, float nearZ, float farZ) {
+                   GLsizei height, float nearZ, float farZ) {
         static const GLenum SHADER_TYPES[]
           = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
         // Vertex shader
@@ -1767,6 +1767,20 @@ namespace Texture {
         glGenerateTextureMipmap(tex_id);
 
         return tex_id;
+    }
+
+    //-----------------------------------------------------------------------------
+    // Name: Create1D()
+    // Desc:
+    //-----------------------------------------------------------------------------
+    void Create1D(GLuint& texture, GLenum format, GLsizei resolution) {
+        glDeleteTextures(1, &texture);
+        glCreateTextures(GL_TEXTURE_1D, 1, &texture);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureStorage1D(texture, 1, format, resolution);
     }
 
     //-----------------------------------------------------------------------------

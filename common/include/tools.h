@@ -471,7 +471,7 @@ namespace Texture {
     // Desc:
     //-----------------------------------------------------------------------------
     void ShowDepth(GLuint texID, GLint x, GLint y, GLsizei width,
-                          GLsizei height, float nearZ, float farZ);
+                   GLsizei height, float nearZ, float farZ);
     //-----------------------------------------------------------------------------
     // Name: GetImageData()
     // Desc:
@@ -496,6 +496,12 @@ namespace Texture {
     // Desc:
     //-----------------------------------------------------------------------------
     GLuint CreateSimpleTexture(GLint width, GLint height);
+
+    //-----------------------------------------------------------------------------
+    // Name: Create1D()
+    // Desc:
+    //-----------------------------------------------------------------------------
+    void Create1D(GLuint& texture, GLenum format, GLsizei resolution);
 
     //-----------------------------------------------------------------------------
     // Name: Create2D()
