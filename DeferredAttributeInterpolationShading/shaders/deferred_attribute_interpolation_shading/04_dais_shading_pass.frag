@@ -24,5 +24,5 @@ void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     uint address = uint(texelFetch(TriangleAddressSampler, pixel, 0).x);
 
-    FragColor = vec4(0.0, 0.0, float(address), 1.0);
+    FragColor = vec4(0, 0, float(address), 1.0);
 }

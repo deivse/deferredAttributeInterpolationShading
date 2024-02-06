@@ -51,12 +51,14 @@ void DeferredAttributeInterpolationShading::initialize() {
           glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
           glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
           glDisable(GL_DITHER);
+          glClear(GL_COLOR_BUFFER_BIT);
+
 
           Scene::get().update();
           Scene::get().spheres.render();
           glDepthFunc(GL_LESS);
           glEnable(GL_DITHER);
-
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
       },
       "02_dais_geometry_pass");
 
@@ -64,18 +66,13 @@ void DeferredAttributeInterpolationShading::initialize() {
       "Shading Pass",
       [&]() -> void {
           glDisable(GL_DEPTH_TEST);
-          glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO);
-          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
           glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
                               gl::GLenum::GL_COLOR_ATTACHMENT0)),
                             triangleAddressFBOTexture);
 
           glBindVertexArray(emptyVAO);
           glDrawArrays(GL_TRIANGLES, 0, 3);
-
           glEnable(GL_DEPTH_TEST);
-          glBindFramebuffer(GL_FRAMEBUFFER, 0);
       },
       "04_dais_shading_pass");
 }
@@ -88,7 +85,6 @@ void DeferredAttributeInterpolationShading::createFBO(
 
     glDeleteFramebuffers(1, &FBO);
     glCreateFramebuffers(1, &FBO);
-
 
     constexpr auto colorAttachment0 = gl::GLenum::GL_COLOR_ATTACHMENT0;
     glNamedFramebufferDrawBuffers(FBO, 1, &colorAttachment0);
@@ -141,7 +137,7 @@ void DeferredAttributeInterpolationShading::createTriangleBuffer() {
     constexpr auto dataSize
       = WRITE_INDEX_SIZE + TRIANGLE_SIZE * MAX_TRIANGLE_COUNT;
 
-    std::array<std::byte, dataSize> data{}; 
+    std::array<std::byte, dataSize> data{};
 
     glNamedBufferData(triangleSSBO, dataSize, data.data(),
                       gl::GLenum::GL_STATIC_COPY);

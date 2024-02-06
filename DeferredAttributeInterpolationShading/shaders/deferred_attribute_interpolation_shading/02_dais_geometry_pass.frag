@@ -37,7 +37,7 @@ uint get_address_from_bucket(uint id, uvec4 bucketValue) {
 const int LOCKED = 1;
 const int UNLOCKED = 0;
 
-layout(location = 0) out uint TriangleAddress;
+layout(location = 0) out vec4 TriangleAddress;
 
 bool lookupMemoizationCache(int id, out uint address) {
     bool store_sample = false;
@@ -86,5 +86,5 @@ void main() {
         triangleSSB.data[address].vertices[2] = vTriangleVertices[2];
     }
 
-    TriangleAddress = address;
+    TriangleAddress.r = address;
 }
