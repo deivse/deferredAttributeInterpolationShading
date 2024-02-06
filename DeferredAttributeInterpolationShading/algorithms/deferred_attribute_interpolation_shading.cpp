@@ -3,6 +3,7 @@
 #include "scene.h"
 
 #include <glm/vec2.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <common.h>
 
 #include <layout_constants.h>
@@ -15,20 +16,27 @@ DeferredAttributeInterpolationShading::
     glDeleteVertexArrays(1, &emptyVAO);
     glDeleteBuffers(1, &settingsUniformBuffer);
     glDeleteBuffers(1, &triangleSSBO);
+    glDeleteBuffers(1, &atomicCounterBuffer);
 
     glDeleteTextures(1, &cacheTexture);
     glDeleteTextures(1, &locksTexture);
     glDeleteTextures(1, &triangleAddressFBOTexture);
+    glDeleteTextures(1, &FBOdepthTexture);
 }
 
 void DeferredAttributeInterpolationShading::initialize() {
+    DECLARE_OPTION(restoreDepth, true);
+
     logDebug("Initializing");
     createHashTableResources();
     createTriangleBuffer();
+    createAtomicCounterBuffer();
+    createSettingsUniformBuffer();
     createFBO(Variables::WindowSize);
 
     glLineWidth(2.0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glDisable(GL_DITHER);
 
     glGenVertexArrays(1, &emptyVAO);
 
@@ -36,7 +44,7 @@ void DeferredAttributeInterpolationShading::initialize() {
     renderPasses.emplace_back(
       "Depth Prepass",
       [&]() -> void {
-          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+          glBindFramebuffer(GL_FRAMEBUFFER, FBO);
           glClear(GL_DEPTH_BUFFER_BIT);
 
           Scene::get().update();
@@ -45,19 +53,48 @@ void DeferredAttributeInterpolationShading::initialize() {
       "01_dais_depth_prepass");
 
     renderPasses.emplace_back(
+      "Reset cache and triangle buffer",
+      [&]() -> void {
+          resetHashTable();
+          auto* address = static_cast<GLuint*>(glMapNamedBufferRange(
+            atomicCounterBuffer, 0, sizeof(GLuint),
+            GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+          *address = 0;
+          if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
+              logWarning("Triangle SSBO data store contents have become "
+                         "corrupt during the time the data store was mapped, "
+                         "reinitializing.");
+              createAtomicCounterBuffer();
+          }
+      },
+      nullptr);
+
+    renderPasses.emplace_back(
       "Geometry Pass",
       [&]() -> void {
           glDepthFunc(GL_EQUAL);
-          glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
-          glDisable(GL_DITHER);
-          glClear(GL_COLOR_BUFFER_BIT);
+          constexpr auto clearValue = glm::uvec4(-1);
+          glClearNamedFramebufferuiv(FBO, GL_COLOR, 0,
+                                     glm::value_ptr(clearValue));
 
+          // update settings buffer
+          auto* settings = reinterpret_cast<UniformSettingsBuffer*>(
+            glMapNamedBuffer(settingsUniformBuffer, GL_WRITE_ONLY));
+          settings->bitwiseModHashSize = hashTableSize - 1;
+          settings->numTrianglesPerSphere
+            = Scene::get().spheres.trianglesPerSphere;
+          if (glUnmapNamedBuffer(settingsUniformBuffer) == GL_FALSE) {
+              logWarning("Settings uniform buffer data store contents have "
+                         "become corrupt during the "
+                         "time the data store was mapped, reinitializing.");
+              createSettingsUniformBuffer(UniformSettingsBuffer{
+                hashTableSize - 1, static_cast<uint32_t>(
+                                     Scene::get().spheres.trianglesPerSphere)});
+          }
 
           Scene::get().update();
           Scene::get().spheres.render();
           glDepthFunc(GL_LESS);
-          glEnable(GL_DITHER);
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
       },
       "02_dais_geometry_pass");
@@ -66,6 +103,7 @@ void DeferredAttributeInterpolationShading::initialize() {
       "Shading Pass",
       [&]() -> void {
           glDisable(GL_DEPTH_TEST);
+          glClear(GL_COLOR_BUFFER_BIT);
           glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
                               gl::GLenum::GL_COLOR_ATTACHMENT0)),
                             triangleAddressFBOTexture);
@@ -75,26 +113,80 @@ void DeferredAttributeInterpolationShading::initialize() {
           glEnable(GL_DEPTH_TEST);
       },
       "04_dais_shading_pass");
+    renderPasses.emplace_back(
+      "Restore Z-Buffer",
+      [&]() -> void {
+          glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO);
+          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+          glBlitFramebuffer(0, 0, Variables::WindowSize.x,
+                            Variables::WindowSize.y, 0, 0,
+                            Variables::WindowSize.x, Variables::WindowSize.y,
+                            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      },
+      &restoreDepth);
 }
 
 void DeferredAttributeInterpolationShading::createFBO(
   const glm::ivec2& resolution) {
     logDebug("Creating FBO...");
 
-    Tools::Texture::Create2D(triangleAddressFBOTexture, GL_R32UI, resolution);
+    Tools::Texture::Create2D(triangleAddressFBOTexture, GL_R32I, resolution);
+    Tools::Texture::Create2D(FBOdepthTexture, gl::GLenum::GL_DEPTH24_STENCIL8,
+                             resolution);
 
     glDeleteFramebuffers(1, &FBO);
     glCreateFramebuffers(1, &FBO);
 
-    constexpr auto colorAttachment0 = gl::GLenum::GL_COLOR_ATTACHMENT0;
-    glNamedFramebufferDrawBuffers(FBO, 1, &colorAttachment0);
+    glNamedFramebufferDrawBuffers(FBO, 1, &GL_COLOR_ATTACHMENT0);
 
     glNamedFramebufferTexture(FBO, GL_COLOR_ATTACHMENT0,
                               triangleAddressFBOTexture, 0);
+    glNamedFramebufferTexture(FBO, GL_DEPTH_ATTACHMENT, FBOdepthTexture, 0);
 
     assert(glGetError() == GL_NO_ERROR);
     assert(glCheckNamedFramebufferStatus(FBO, GL_FRAMEBUFFER)
            == GL_FRAMEBUFFER_COMPLETE);
+}
+
+void DeferredAttributeInterpolationShading::createAtomicCounterBuffer() {
+    logDebug("Creating atomic counter buffer...");
+
+    glDeleteBuffers(1, &atomicCounterBuffer);
+    glCreateBuffers(1, &atomicCounterBuffer);
+    constexpr GLuint zero = 0;
+    glNamedBufferStorage(atomicCounterBuffer, sizeof(GLuint), &zero,
+                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
+    glBindBufferBase(
+      GL_ATOMIC_COUNTER_BUFFER,
+      layout::location(layout::AtomicCounterBuffers::DAIS_TriangleCounter),
+      atomicCounterBuffer);
+}
+
+void DeferredAttributeInterpolationShading::createSettingsUniformBuffer(
+  std::optional<UniformSettingsBuffer> initialData) {
+    logDebug("Creating settings uniform buffer...");
+
+    glDeleteBuffers(1, &settingsUniformBuffer);
+    glCreateBuffers(1, &settingsUniformBuffer);
+    glNamedBufferStorage(settingsUniformBuffer, sizeof(UniformSettingsBuffer),
+                         initialData ? &initialData : nullptr,
+                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER,
+                     layout::location(layout::UniformBuffers::DAIS_Settings),
+                     settingsUniformBuffer);
+}
+
+void DeferredAttributeInterpolationShading::resetHashTable() {
+    static std::vector<glm::uvec4> initialCacheData = [](size_t hashTableSize) {
+        std::vector<glm::uvec4> data;
+        data.reserve(hashTableSize);
+        return data;
+    }(hashTableSize);
+    initialCacheData.resize(hashTableSize, glm::uvec4(-1));
+
+    glTextureSubImage1D(cacheTexture, 0, 0, hashTableSize, GL_RGBA_INTEGER,
+                        GL_UNSIGNED_INT, initialCacheData.data());
 }
 
 void DeferredAttributeInterpolationShading::createHashTableResources() {
@@ -102,26 +194,18 @@ void DeferredAttributeInterpolationShading::createHashTableResources() {
 
     constexpr auto createAndBindImageTexture
       = [](GLuint& texture, const gl::GLenum format,
-           const GLsizei hashTableSize) {
+           const GLsizei hashTableSize, const layout::ImageUnits unit) {
             Tools::Texture::Create1D(texture, format, hashTableSize);
-            glBindImageTexture(layout::location(layout::ImageUnits::DAIS_Cache),
-                               texture, 0, GL_FALSE, 0, GL_READ_WRITE, format);
+            glBindImageTexture(layout::location(unit), texture, 0, GL_FALSE, 0,
+                               GL_READ_WRITE, format);
         };
 
     createAndBindImageTexture(cacheTexture, gl::GLenum::GL_RGBA32UI,
-                              hashTableSize);
-    createAndBindImageTexture(locksTexture, gl::GLenum::GL_R32UI,
-                              hashTableSize);
+                              hashTableSize, layout::ImageUnits::DAIS_Cache);
+    createAndBindImageTexture(locksTexture, gl::GLenum::GL_R32UI, hashTableSize,
+                              layout::ImageUnits::DAIS_Locks);
 
-    settings.bitwiseModHashSize = hashTableSize - 1;
-
-    glDeleteBuffers(1, &settingsUniformBuffer);
-    glCreateBuffers(1, &settingsUniformBuffer);
-    glNamedBufferStorage(settingsUniformBuffer, sizeof(Settings), &settings,
-                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER,
-                     layout::location(layout::UniformBuffers::DAIS_Settings),
-                     settingsUniformBuffer);
+    resetHashTable();
 }
 
 void DeferredAttributeInterpolationShading::createTriangleBuffer() {
@@ -130,17 +214,16 @@ void DeferredAttributeInterpolationShading::createTriangleBuffer() {
     glDeleteBuffers(1, &triangleSSBO);
     glCreateBuffers(1, &triangleSSBO);
 
-    constexpr auto WRITE_INDEX_SIZE = 4;
+    constexpr auto WRITE_INDEX_SIZE = 4 * 4;
     constexpr auto TRIANGLE_SIZE = 96;
-    constexpr auto MAX_TRIANGLE_COUNT = 10000;
+    constexpr auto MAX_TRIANGLE_COUNT = 100000;
 
     constexpr auto dataSize
       = WRITE_INDEX_SIZE + TRIANGLE_SIZE * MAX_TRIANGLE_COUNT;
 
-    std::array<std::byte, dataSize> data{};
+    glNamedBufferStorage(triangleSSBO, dataSize, nullptr,
+                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
 
-    glNamedBufferData(triangleSSBO, dataSize, data.data(),
-                      gl::GLenum::GL_STATIC_COPY);
     glBindBufferBase(
       GL_SHADER_STORAGE_BUFFER,
       layout::location(layout::ShaderStorageBuffers::DAIS_Triangles),

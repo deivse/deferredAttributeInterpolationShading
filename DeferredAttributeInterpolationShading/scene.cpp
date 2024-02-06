@@ -101,11 +101,7 @@ void Scene::Lights::genRandomRadiuses() {
                          lights.data());
 }
 
-void Scene::Spheres::render() {
-    // Create texture for scene
-    static GLuint texture
-      = Tools::Texture::CreateFromFile("../../common/textures/metal01.jpg");
-
+void Scene::Spheres::updateGeometry() {
     // Calculate sphere positions
     const auto numSpheres = static_cast<size_t>(numSpheresPerRow)
                             * numSpheresPerRow * numSpheresPerRow;
@@ -150,13 +146,20 @@ void Scene::Spheres::render() {
         glVertexArrayAttribFormat(vertexArray, 0, 3, GL_FLOAT, GL_FALSE, 0);
         glEnableVertexArrayAttrib(vertexArray, 0);
     }
+    trianglesPerSphere = static_cast<GLsizei>(sphereVertices.size()) / 3;
+}
+
+void Scene::Spheres::render() {
+    // Create texture for scene
+    static GLuint texture
+      = Tools::Texture::CreateFromFile("../../common/textures/metal01.jpg");
 
     glBindTextureUnit(layout::location(layout::TextureUnits::Albedo), texture);
     glBindVertexArray(vertexArray);
 
     glDrawArraysInstanced(GL_TRIANGLES, 0,
                           static_cast<GLsizei>(sphereVertices.size()),
-                          static_cast<GLsizei>(numSpheres));
+                          static_cast<GLsizei>(std::pow(numSpheresPerRow, 3)));
 
     glBindVertexArray(0);
 }

@@ -105,6 +105,7 @@ int showGUI() {
         numSphereSlices = glm::clamp(numSphereSlices, 5, 100);
         resetAlgorithm();
     }
+    Scene::get().spheres.updateGeometry();
 
     ImGui::Separator();
     ImGui::Text("Lights");

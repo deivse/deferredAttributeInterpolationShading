@@ -11,30 +11,37 @@ class DeferredAttributeInterpolationShading
 {
     // NOLINTNEXTLINE(cert-err58-cpp)
     inline static const std::string name{"D.A.I.S."};
-    GLsizei hashTableSize = 1024; // TODO: make this a GUI parameter
+    GLsizei hashTableSize = 8192*2*2; // TODO: make this a GUI parameter
 
     GLuint emptyVAO = 0;
     GLuint FBO = 0;
 
-    struct Settings
+    struct UniformSettingsBuffer
     {
         /// @brief triangleID & bitwiseModHashSize == triangleID % hashTableSize
         int32_t bitwiseModHashSize;
-    } settings;
+        uint32_t numTrianglesPerSphere;
+    };
     GLuint settingsUniformBuffer = 0;
     GLuint triangleSSBO = 0;
+    GLuint atomicCounterBuffer = 0;
 
     // Cache and Locks for geometry sampling stage.
     GLuint cacheTexture = 0, locksTexture = 0;
 
-    GLuint triangleAddressFBOTexture = 0;
+    GLuint triangleAddressFBOTexture = 0, FBOdepthTexture = 0;
 
     OptionsMap options;
     std::vector<RenderPass> renderPasses;
 
+    void createAtomicCounterBuffer();
+    void createSettingsUniformBuffer(
+      std::optional<UniformSettingsBuffer> initialData = std::nullopt);
     void createHashTableResources();
     void createTriangleBuffer();
     void createFBO(const glm::ivec2& resolution);
+
+    void resetHashTable();
 
 public:
     ~DeferredAttributeInterpolationShading();

@@ -84,6 +84,9 @@ struct Scene
     {
         int numSpheresPerRow = 20;
         int numSphereSlices = 10;
+        // is updated by prepareGeometry
+        int trianglesPerSphere = 0;
+
         GLuint vertexArray = 0;
         GLuint vertexBuffer = 0;
         GLuint sphereOffsetsBuffer = 0;
@@ -91,6 +94,12 @@ struct Scene
         std::vector<glm::vec4> sphereOffsets;
         std::vector<glm::vec3> sphereVertices;
 
+        Spheres(int numSpheresPerRow, int numSphereSlices)
+          : numSpheresPerRow(numSpheresPerRow),
+            numSphereSlices(numSphereSlices) {
+            updateGeometry();
+        }
+        void updateGeometry();
         void render();
     } spheres;
 
@@ -111,10 +120,8 @@ struct Scene
 
 private:
     explicit Scene(int numSpheresPerRow = 5, int numSphereSlices = 20)
-      : lights(static_cast<float>(numSpheresPerRow)) {
-        spheres.numSpheresPerRow = numSpheresPerRow;
-        spheres.numSphereSlices = numSphereSlices;
-    }
+      : lights(static_cast<float>(numSpheresPerRow)),
+        spheres(numSpheresPerRow, numSphereSlices) {}
 };
 
 #endif /* DEFERREDATTRIBUTEINTERPOLATIONSHADING_SCENE */

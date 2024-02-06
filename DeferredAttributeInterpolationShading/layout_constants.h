@@ -6,6 +6,11 @@
 namespace layout {
 using namespace gl;
 
+
+enum class AtomicCounterBuffers : GLuint {
+    DAIS_TriangleCounter = 0
+};
+
 enum class UniformBuffers : GLuint
 {
     Lights = 0,
@@ -21,6 +26,7 @@ enum class Uniforms : GLuint
 {
     CameraPosition = 0,
     NumLights
+    //TODO: use uniform buffer
 };
 
 enum class TextureUnits : GLuint
