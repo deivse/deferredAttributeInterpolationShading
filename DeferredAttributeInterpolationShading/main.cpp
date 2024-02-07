@@ -105,6 +105,10 @@ int showGUI() {
         numSphereSlices = glm::clamp(numSphereSlices, 5, 100);
         resetAlgorithm();
     }
+    ImGui::SetNextItemWidth(itemWidth);
+    ImGui::Text("#(Triangles): %zu",
+                Scene::get().spheres.trianglesPerSphere
+                  * static_cast<size_t>(std::pow(numSpheresPerRow, 3)));
     Scene::get().spheres.updateGeometry();
 
     ImGui::Separator();

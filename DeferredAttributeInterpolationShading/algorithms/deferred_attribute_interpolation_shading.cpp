@@ -47,7 +47,6 @@ void DeferredAttributeInterpolationShading::initialize() {
           glBindFramebuffer(GL_FRAMEBUFFER, FBO);
           glClear(GL_DEPTH_BUFFER_BIT);
 
-          Scene::get().update();
           Scene::get().spheres.render();
       },
       "01_dais_depth_prepass");
@@ -177,6 +176,7 @@ void DeferredAttributeInterpolationShading::createSettingsUniformBuffer(
                      settingsUniformBuffer);
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const)
 void DeferredAttributeInterpolationShading::resetHashTable() {
     static std::vector<glm::uvec4> initialCacheData = [](size_t hashTableSize) {
         std::vector<glm::uvec4> data;
@@ -214,15 +214,10 @@ void DeferredAttributeInterpolationShading::createTriangleBuffer() {
     glDeleteBuffers(1, &triangleSSBO);
     glCreateBuffers(1, &triangleSSBO);
 
-    constexpr auto WRITE_INDEX_SIZE = 4 * 4;
-    constexpr auto TRIANGLE_SIZE = 96;
-    constexpr auto MAX_TRIANGLE_COUNT = 100000;
-
-    constexpr auto dataSize
-      = WRITE_INDEX_SIZE + TRIANGLE_SIZE * MAX_TRIANGLE_COUNT;
+    constexpr auto dataSize = TRIANGLE_SIZE * MAX_TRIANGLE_COUNT;
 
     glNamedBufferStorage(triangleSSBO, dataSize, nullptr,
-                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
+                         GL_CLIENT_STORAGE_BIT);
 
     glBindBufferBase(
       GL_SHADER_STORAGE_BUFFER,

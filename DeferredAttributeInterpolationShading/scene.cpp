@@ -59,14 +59,18 @@ Scene::Lights::LightRangesData::LightRangesData() {
 }
 
 void Scene::Lights::renderLightCenters() {
-    static GLuint program = 0;
-    static GLuint vertexArray = 0;
-    if (program == 0) {
-        Tools::Shader::CreateShaderProgramFromFile(program, "light_center.vert",
-                                                   nullptr, nullptr, nullptr,
-                                                   "light.frag");
-        glCreateVertexArrays(1, &vertexArray);
-    }
+    static GLuint program = []() {
+        GLuint p = 0;
+        Tools::Shader::CreateShaderProgramFromFile(
+          p, "light_center.vert", nullptr, nullptr, nullptr, "light.frag");
+        return p;
+    }();
+    static GLuint vertexArray = []() {
+        GLuint v = 0;
+        glCreateVertexArrays(1, &v);
+        return v;
+    }();
+
     glUseProgram(program);
     glBindVertexArray(vertexArray);
     glDrawArrays(GL_POINTS, 0, numLights);
@@ -150,11 +154,8 @@ void Scene::Spheres::updateGeometry() {
 }
 
 void Scene::Spheres::render() {
-    // Create texture for scene
-    static GLuint texture
-      = Tools::Texture::CreateFromFile("../../common/textures/metal01.jpg");
-
-    glBindTextureUnit(layout::location(layout::TextureUnits::Albedo), texture);
+    glBindTextureUnit(layout::location(layout::TextureUnits::Albedo),
+                      sphereTexture);
     glBindVertexArray(vertexArray);
 
     glDrawArraysInstanced(GL_TRIANGLES, 0,

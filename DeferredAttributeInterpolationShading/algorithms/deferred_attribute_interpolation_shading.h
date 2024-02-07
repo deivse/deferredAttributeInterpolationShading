@@ -11,10 +11,13 @@ class DeferredAttributeInterpolationShading
 {
     // NOLINTNEXTLINE(cert-err58-cpp)
     inline static const std::string name{"D.A.I.S."};
-    GLsizei hashTableSize = 8192*2*2; // TODO: make this a GUI parameter
+    GLsizei hashTableSize = 8192; // TODO: make this a GUI parameter
 
     GLuint emptyVAO = 0;
     GLuint FBO = 0;
+
+    constexpr static size_t TRIANGLE_SIZE = 96;
+    constexpr static size_t MAX_TRIANGLE_COUNT = 1036800;
 
     struct UniformSettingsBuffer
     {

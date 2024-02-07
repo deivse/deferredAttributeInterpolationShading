@@ -90,13 +90,16 @@ struct Scene
         GLuint vertexArray = 0;
         GLuint vertexBuffer = 0;
         GLuint sphereOffsetsBuffer = 0;
+        GLuint sphereTexture = 0;
         GLsizei numSlices = 0;
         std::vector<glm::vec4> sphereOffsets;
         std::vector<glm::vec3> sphereVertices;
 
         Spheres(int numSpheresPerRow, int numSphereSlices)
           : numSpheresPerRow(numSpheresPerRow),
-            numSphereSlices(numSphereSlices) {
+            numSphereSlices(numSphereSlices),
+            sphereTexture(Tools::Texture::CreateFromFile(
+              "../../common/textures/metal01.jpg")) {
             updateGeometry();
         }
         void updateGeometry();
