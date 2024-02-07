@@ -16,7 +16,7 @@ class DeferredAttributeInterpolationShading
     GLuint emptyVAO = 0;
     GLuint FBO = 0;
 
-    constexpr static size_t TRIANGLE_SIZE = 96;
+    constexpr static size_t TRIANGLE_SIZE = 72;
     constexpr static size_t MAX_TRIANGLE_COUNT = 1036800;
 
     struct UniformSettingsBuffer

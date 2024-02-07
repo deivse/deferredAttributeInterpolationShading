@@ -17,16 +17,23 @@ layout(binding = 2) uniform SettingsBuffer {
     uint trianglesPerSphere;
 } settings;
 
-in flat int instanceID[3];
-out flat vec3 vTriangleVertices [3];
+in int vInstanceID[3];
+in uint vNormalSnormOct[3];
+in uint vUVunorm[3];
+
+out flat vec3 vVertices[3];
+out flat uint vNormalsSnormOct[3];
+out flat uint vUVsUnorm[3];
 
 void main()
 {
     for (int i = 0; i < gl_in.length(); ++i)
     {
         gl_Position = gl_in[i].gl_Position;
-        vTriangleVertices[i] = gl_in[i].gl_Position.xyz;
-        gl_PrimitiveID = gl_PrimitiveIDIn + instanceID[0] * int(settings.trianglesPerSphere);
+        vVertices[i] = gl_in[i].gl_Position.xyz;
+        vNormalsSnormOct[i] = vNormalSnormOct[i];
+        vUVsUnorm[i] = vUVunorm[i];
+        gl_PrimitiveID = gl_PrimitiveIDIn + vInstanceID[0] * int(settings.trianglesPerSphere);
         EmitVertex();
     }
     EndPrimitive();

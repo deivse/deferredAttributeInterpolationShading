@@ -4,8 +4,14 @@ layout(early_fragment_tests) in;
 
 struct Triangle
 {
-    // TODO
-    vec3 vertices[3];
+    // in std430, vec3s are not padded to vec4 when in an array or structure.
+    vec3 vertices[3];        // size = 36, offset = 0
+    uint normalsSnormOct[3]; // size = 12, offset = 36
+    uint UVsUnorm[3];             // size = 12, offset = 48
+
+    // struct size = 72 bytes (60 w/o padding), alignment = 36
+    // 12 bytes padding since 60 % 36 == -12, where 36 is the alignment of
+    // biggest member.
 };
 
 layout(binding = 2) uniform SettingsBuffer {
@@ -20,12 +26,15 @@ layout(binding = 1, r32ui) coherent
   volatile restrict uniform uimageBuffer locks;
 
 // Vertices of triangle this fragment belongs to. (Passed by geometry shader)
-in flat vec3 vTriangleVertices[3];
-in flat uint vTriangleID;
+in flat vec3 vVertices[3];
+in flat uint vNormalsSnormOct[3];
+in flat uint vUVsUnorm[3];
 
 layout(std430, binding = 0) buffer TriangleShaderStorageBuffer {
     Triangle triangles[];
 };
+
+layout(binding = 0) uniform atomic_uint triangleSSBWriteIndex;
 
 int get_index_from_bucket(uint id, uvec4 bucketValue) {
     if (bucketValue.x == id) return int(bucketValue.y);
@@ -35,10 +44,6 @@ int get_index_from_bucket(uint id, uvec4 bucketValue) {
 
 const int LOCKED = 1;
 const int UNLOCKED = 0;
-
-layout (binding = 0) uniform atomic_uint triangleSSBWriteIndex;
-
-layout(location = 0) out uvec4 TriangleIndex;
 
 bool lookupMemoizationCache(uint id, out int index) {
     bool store_sample = false;
@@ -79,14 +84,20 @@ bool lookupMemoizationCache(uint id, out int index) {
     return store_sample;
 }
 
-in flat int instanceID;
+layout(location = 0) out uvec4 TriangleIndex;
 
 void main() {
     int index = 0;
     if (lookupMemoizationCache(int(gl_PrimitiveID), index)) {
-        triangles[index].vertices[0] = vTriangleVertices[0];
-        triangles[index].vertices[1] = vTriangleVertices[1];
-        triangles[index].vertices[2] = vTriangleVertices[2];
+        triangles[index].vertices[0] = vVertices[0];
+        triangles[index].vertices[1] = vVertices[1];
+        triangles[index].vertices[2] = vVertices[2];
+        triangles[index].normalsSnormOct[0] = vNormalsSnormOct[0];
+        triangles[index].normalsSnormOct[1] = vNormalsSnormOct[1];
+        triangles[index].normalsSnormOct[2] = vNormalsSnormOct[2];
+        triangles[index].UVsUnorm[0] = vUVsUnorm[0];
+        triangles[index].UVsUnorm[1] = vUVsUnorm[1];
+        triangles[index].UVsUnorm[2] = vUVsUnorm[2];
     }
 
     TriangleIndex.r = index;
