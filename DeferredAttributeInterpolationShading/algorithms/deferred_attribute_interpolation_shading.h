@@ -4,6 +4,7 @@
 #include <algorithm.h>
 
 #include <glbinding/gl/gl.h>
+#include <layout_constants.h>
 
 namespace Algorithms {
 class DeferredAttributeInterpolationShading
@@ -26,7 +27,7 @@ class DeferredAttributeInterpolationShading
         uint32_t numTrianglesPerSphere;
     };
     GLuint settingsUniformBuffer = 0;
-    GLuint triangleSSBO = 0;
+    GLuint triangleSSBO = 0, derivativeSSBO = 0;
     GLuint atomicCounterBuffer = 0;
 
     // Cache and Locks for geometry sampling stage.
@@ -41,7 +42,7 @@ class DeferredAttributeInterpolationShading
     void createSettingsUniformBuffer(
       std::optional<UniformSettingsBuffer> initialData = std::nullopt);
     void createHashTableResources();
-    void createTriangleBuffer();
+    void createSSBO(GLuint& ssbo, layout::ShaderStorageBuffers binding);
     void createFBO(const glm::ivec2& resolution);
 
     void resetHashTable();

@@ -1,0 +1,184 @@
+#version 450 core
+
+// compute group size == (1, 1, 1)
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct Triangle
+{
+    // in std430, vec3s are not padded to vec4 when in an array or structure.
+    vec4 vertices[3];        // size = 48, offset = 0, alignment = 16
+    uint normalsSnormOct[3]; // size = 12, offset = 48, alignment = 4
+    uint UVsUnorm[3];        // size = 12, offset = 60, alignment = 4
+
+    // 96 - 72 = 24 bytes padding
+    uint padding[6]; // size = 24, offset = 72, alignment = 4
+
+    // ---- std430:
+    // size == 96 bytes, alignment = 16
+    // --------------------------------
+};
+
+// Returns ±1
+vec2 signNotZero(vec2 v) {
+    return vec2((v.x >= 0.0) ? +1.0 : -1.0, (v.y >= 0.0) ? +1.0 : -1.0);
+}
+
+vec3 oct_to_float32x3(vec2 e) {
+    vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+    if (v.z < 0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+    return normalize(v);
+}
+
+void uncompressTriangleAttributes(in Triangle triangle, out vec3 normals[3],
+                                  out vec2 UVs[3]) {
+    normals[0] = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[0]));
+    normals[1] = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[1]));
+    normals[2] = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[2]));
+    UVs[0] = unpackSnorm2x16(triangle.UVsUnorm[0]);
+    UVs[1] = unpackSnorm2x16(triangle.UVsUnorm[1]);
+    UVs[2] = unpackSnorm2x16(triangle.UVsUnorm[2]);
+}
+
+struct TriangleDerivatives
+{
+    // Partial derivatives of each attribute for x and y
+    vec2 dUV_dX;     // size = 8, offset = 0, alignment = 8
+    vec2 dUV_dY;     // size = 8, offset = 8, alignment = 8
+    float dW_dX;     // size = 4, offset = 16, alignment = 4
+    float dW_dY;     // size = 4, offset = 20, alignment = 4
+    vec3 dNormal_dX; // size = 12, offset = 32, alignment = 16
+    vec3 dNormal_dY; // size = 12, offset = 48, alignment = 16
+
+    // Attribute values shifted to (0,0) in screenspace
+    vec2 UV_fixed;        // size = 8, offset = 64, alignment = 8
+    vec3 normal_fixed;    // size = 12, offset = 80, alignment = 16
+    float oneOverW_fixed; // size = 4, offset = 92, alignment = 4
+
+    // ---- std430:
+    //  size = 96 bytes, alignment = 16
+    // --------------------------------
+};
+
+layout(std430, binding = 0) readonly buffer TriangleShaderStorageBuffer {
+    Triangle triangles[];
+};
+
+layout(std430,
+       binding = 0) writeonly buffer TriangleDerivativesShaderStorageBuffer {
+    TriangleDerivatives derivatives[];
+};
+
+void shrinkTriangle(inout mat3x4 pos, inout mat3x2 UVs, inout mat3 normals,
+                    const int axis, const bool isMin) {
+    const int v0 = 1, v1 = 2, v2 = 4;
+    uint clipMask = 0;
+    if (isMin) {
+        clipMask |= pos[0][axis] < -pos[0].w ? v0 : 0;
+        clipMask |= pos[1][axis] < -pos[1].w ? v1 : 0;
+        clipMask |= pos[2][axis] < -pos[2].w ? v2 : 0;
+    } else {
+        clipMask |= pos[0][axis] > pos[0].w ? v0 : 0;
+        clipMask |= pos[1][axis] > pos[1].w ? v1 : 0;
+        clipMask |= pos[2][axis] > pos[2].w ? v2 : 0;
+    }
+
+    float a, b1, b2;
+
+// Push the vertex on edge from->to
+#define PUSH_VERTEX(from, to)                                   \
+    b1 = isMin ? pos[to][axis] : -pos[to][axis];                \
+    b2 = isMin ? pos[from][axis] : -pos[from][axis];            \
+    a = (pos[to].w + b1) / (pos[to].w - pos[from].w + b1 - b2); \
+    pos[from] = mix(pos[to], pos[from], a);                     \
+    UVs[from] = mix(UVs[to], UVs[from], a);                     \
+    normals[from] = mix(normals[to], normals[from], a);
+
+    // only 2 vertices may be outside since the triangle is visible
+    switch (clipMask) {
+        case v2 | v0:
+            PUSH_VERTEX(2, 1);
+        case v0:
+            PUSH_VERTEX(0, 1);
+            break;
+        case v0 | v1:
+            PUSH_VERTEX(0, 2);
+        case v1:
+            PUSH_VERTEX(1, 2);
+            break;
+        case v1 | v2:
+            PUSH_VERTEX(1, 0);
+        case v2:
+            PUSH_VERTEX(2, 0);
+            break;
+    }
+}
+
+void computeBarycentricDerivatives(in vec2 pos[3], out vec3 db_dx,
+                                   out vec3 db_dy) {
+    float det = determinant(mat2(pos[2] - pos[1], pos[0] - pos[1]));
+
+    db_dx[0] = (pos[1].y - pos[2].y) / det;
+    db_dx[1] = (pos[2].y - pos[0].y) / det;
+    db_dx[2] = (pos[0].y - pos[1].y) / det;
+
+    db_dy[0] = (pos[2].x - pos[1].x) / det;
+    db_dy[1] = (pos[0].x - pos[2].x) / det;
+    db_dy[2] = (pos[1].x - pos[0].x) / det;
+}
+
+void computeAttributeDerivatives(in Triangle triangle,
+                                 out TriangleDerivatives derivatives) {
+    // uncompress triangle attributes
+    vec3 ogNormals[3];
+    vec2 ogUVs[3];
+    uncompressTriangleAttributes(triangle, ogNormals, ogUVs);
+
+    mat3x4 pos;
+    mat3x2 UVs;
+    mat3x3 normals;
+    for (int i = 0; i < 3; i++) {
+        pos[i] = triangle.vertices[i];
+        UVs[i] = ogUVs[i];
+        normals[i] = ogNormals[i];
+    }
+
+    for (int i = 0; i < 3; i++) {
+        shrinkTriangle(pos, UVs, normals, i, true);
+        shrinkTriangle(pos, UVs, normals, i, false);
+    }
+
+    vec3 oneOverW = 1.0 / vec3(pos[0].w, pos[1].w, pos[2].w);
+    vec2 posScreen[3];
+
+    for (int i = 0; i < 3; i++) {
+        posScreen[i] = pos[i].xy * oneOverW[i];
+        UVs[i] *= oneOverW[i];
+        normals[i] *= oneOverW[i];
+    }
+    vec3 db_dx, db_dy;
+    computeBarycentricDerivatives(posScreen, db_dx, db_dy);
+
+    derivatives.dNormal_dX = normals * db_dx;
+    derivatives.dNormal_dY = normals * db_dy;
+    derivatives.dUV_dX = UVs * db_dx;
+    derivatives.dUV_dY = UVs * db_dy;
+    derivatives.dW_dX = dot(oneOverW, db_dx);
+    derivatives.dW_dY = dot(oneOverW, db_dy);
+
+    vec2 o = -posScreen[0];
+    derivatives.oneOverW_fixed
+      = oneOverW[0] + o.x * derivatives.dW_dX + o.y * derivatives.dW_dY;
+    derivatives.UV_fixed
+      = UVs[0] + o.x * derivatives.dUV_dX + o.y * derivatives.dUV_dY;
+    derivatives.normal_fixed = normals[0] + o.x * derivatives.dNormal_dX
+                               + o.y * derivatives.dNormal_dY;
+}
+
+void main(void) {
+    uint index = gl_WorkGroupID.x;
+
+    TriangleDerivatives triangleDerivatives;
+    computeAttributeDerivatives(triangles[index], triangleDerivatives);
+
+    derivatives[index] = triangleDerivatives;
+}

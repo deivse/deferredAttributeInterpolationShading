@@ -19,7 +19,8 @@ enum class UniformBuffers : GLuint
 };
 
 enum class ShaderStorageBuffers: GLuint {
-    DAIS_Triangles = 0
+    DAIS_Triangles = 0,
+    DAIS_Derivatives
 };
 
 enum class Uniforms : GLuint

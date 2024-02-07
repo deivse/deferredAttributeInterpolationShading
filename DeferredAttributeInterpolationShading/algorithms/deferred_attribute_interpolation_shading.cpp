@@ -16,6 +16,7 @@ DeferredAttributeInterpolationShading::
     glDeleteVertexArrays(1, &emptyVAO);
     glDeleteBuffers(1, &settingsUniformBuffer);
     glDeleteBuffers(1, &triangleSSBO);
+    glDeleteBuffers(1, &derivativeSSBO);
     glDeleteBuffers(1, &atomicCounterBuffer);
 
     glDeleteTextures(1, &cacheTexture);
@@ -29,7 +30,8 @@ void DeferredAttributeInterpolationShading::initialize() {
 
     logDebug("Initializing");
     createHashTableResources();
-    createTriangleBuffer();
+    createSSBO(triangleSSBO, layout::ShaderStorageBuffers::DAIS_Triangles);
+    createSSBO(derivativeSSBO, layout::ShaderStorageBuffers::DAIS_Derivatives);
     createAtomicCounterBuffer();
     createSettingsUniformBuffer();
     createFBO(Variables::WindowSize);
@@ -55,9 +57,8 @@ void DeferredAttributeInterpolationShading::initialize() {
       "Reset cache and triangle buffer",
       [&]() -> void {
           resetHashTable();
-          auto* address = static_cast<GLuint*>(glMapNamedBufferRange(
-            atomicCounterBuffer, 0, sizeof(GLuint),
-            GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+          auto* address = static_cast<GLuint*>(
+            glMapNamedBuffer(atomicCounterBuffer, GL_WRITE_ONLY));
           *address = 0;
           if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
               logWarning("Triangle SSBO data store contents have become "
@@ -99,10 +100,33 @@ void DeferredAttributeInterpolationShading::initialize() {
       "02_dais_geometry_pass");
 
     renderPasses.emplace_back(
+      "Partial Derivatives Compute Pass",
+      [&]() -> void {
+          auto numTriangles = *static_cast<GLuint*>(
+            glMapNamedBuffer(atomicCounterBuffer, GL_READ_ONLY));
+          if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
+              logWarning("Triangle SSBO data store contents have become "
+                         "corrupt during the time the data store was mapped, "
+                         "reinitializing.");
+              createAtomicCounterBuffer();
+          }
+
+          if (numTriangles == 0) return;
+          glDispatchCompute(numTriangles, 1, 1);
+      },
+      "03_dais_compute_pass");
+
+    renderPasses.emplace_back(
       "Shading Pass",
       [&]() -> void {
           glDisable(GL_DEPTH_TEST);
           glClear(GL_COLOR_BUFFER_BIT);
+
+          const auto cameraPosition = Variables::Transform.ModelViewInverse
+                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+          glUniform3fv(layout::location(layout::Uniforms::CameraPosition), 1,
+                       &cameraPosition.x);
+                       
           glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
                               gl::GLenum::GL_COLOR_ATTACHMENT0)),
                             triangleAddressFBOTexture);
@@ -112,6 +136,7 @@ void DeferredAttributeInterpolationShading::initialize() {
           glEnable(GL_DEPTH_TEST);
       },
       "04_dais_shading_pass");
+
     renderPasses.emplace_back(
       "Restore Z-Buffer",
       [&]() -> void {
@@ -155,7 +180,8 @@ void DeferredAttributeInterpolationShading::createAtomicCounterBuffer() {
     glCreateBuffers(1, &atomicCounterBuffer);
     constexpr GLuint zero = 0;
     glNamedBufferStorage(atomicCounterBuffer, sizeof(GLuint), &zero,
-                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
+                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT
+                           | GL_MAP_READ_BIT);
     glBindBufferBase(
       GL_ATOMIC_COUNTER_BUFFER,
       layout::location(layout::AtomicCounterBuffers::DAIS_TriangleCounter),
@@ -208,20 +234,19 @@ void DeferredAttributeInterpolationShading::createHashTableResources() {
     resetHashTable();
 }
 
-void DeferredAttributeInterpolationShading::createTriangleBuffer() {
+void DeferredAttributeInterpolationShading::createSSBO(
+  GLuint& ssbo, layout::ShaderStorageBuffers binding) {
     logDebug("Creating triangle buffer...");
 
-    glDeleteBuffers(1, &triangleSSBO);
-    glCreateBuffers(1, &triangleSSBO);
+    glDeleteBuffers(1, &ssbo);
+    glCreateBuffers(1, &ssbo);
 
     constexpr auto dataSize = TRIANGLE_SIZE * MAX_TRIANGLE_COUNT;
 
-    glNamedBufferStorage(triangleSSBO, dataSize, nullptr,
-                         GL_CLIENT_STORAGE_BIT);
+    glNamedBufferStorage(ssbo, dataSize, nullptr, GL_CLIENT_STORAGE_BIT);
 
     glBindBufferBase(
       GL_SHADER_STORAGE_BUFFER,
-      layout::location(layout::ShaderStorageBuffers::DAIS_Triangles),
-      triangleSSBO);
+      layout::location(binding), ssbo);
 }
 } // namespace Algorithms

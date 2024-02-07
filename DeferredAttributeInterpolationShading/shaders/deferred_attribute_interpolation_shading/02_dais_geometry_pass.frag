@@ -5,13 +5,16 @@ layout(early_fragment_tests) in;
 struct Triangle
 {
     // in std430, vec3s are not padded to vec4 when in an array or structure.
-    vec3 vertices[3];        // size = 36, offset = 0
-    uint normalsSnormOct[3]; // size = 12, offset = 36
-    uint UVsUnorm[3];             // size = 12, offset = 48
+    vec4 vertices[3];        // size = 48, offset = 0, alignment = 16
+    uint normalsSnormOct[3]; // size = 12, offset = 48, alignment = 4
+    uint UVsUnorm[3];        // size = 12, offset = 60, alignment = 4
 
-    // struct size = 72 bytes (60 w/o padding), alignment = 36
-    // 12 bytes padding since 60 % 36 == -12, where 36 is the alignment of
-    // biggest member.
+    // 96 - 72 = 24 bytes padding
+    uint padding[6]; // size = 24, offset = 72, alignment = 4
+
+    // ---- std430:
+    // size == 96 bytes, alignment = 16
+    // --------------------------------
 };
 
 layout(binding = 2) uniform SettingsBuffer {
@@ -26,9 +29,9 @@ layout(binding = 1, r32ui) coherent
   volatile restrict uniform uimageBuffer locks;
 
 // Vertices of triangle this fragment belongs to. (Passed by geometry shader)
-in flat vec3 vVertices[3];
+in flat vec4 vVertices[3];
 in flat uint vNormalsSnormOct[3];
-in flat uint vUVsUnorm[3];
+in flat uint vUVsSnorm[3];
 
 layout(std430, binding = 0) buffer TriangleShaderStorageBuffer {
     Triangle triangles[];
@@ -95,9 +98,9 @@ void main() {
         triangles[index].normalsSnormOct[0] = vNormalsSnormOct[0];
         triangles[index].normalsSnormOct[1] = vNormalsSnormOct[1];
         triangles[index].normalsSnormOct[2] = vNormalsSnormOct[2];
-        triangles[index].UVsUnorm[0] = vUVsUnorm[0];
-        triangles[index].UVsUnorm[1] = vUVsUnorm[1];
-        triangles[index].UVsUnorm[2] = vUVsUnorm[2];
+        triangles[index].UVsUnorm[0] = vUVsSnorm[0];
+        triangles[index].UVsUnorm[1] = vUVsSnorm[1];
+        triangles[index].UVsUnorm[2] = vUVsSnorm[2];
     }
 
     TriangleIndex.r = index;

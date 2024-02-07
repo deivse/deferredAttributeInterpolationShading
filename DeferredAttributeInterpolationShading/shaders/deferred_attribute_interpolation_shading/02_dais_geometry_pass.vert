@@ -4,9 +4,11 @@ layout(location = 0) in vec4 a_Vertex;
 layout(binding = 1) uniform SphereCentersBuffer { vec4 sphereOffsets[2048]; };
 
 uniform mat4 u_MVPMatrix;
+
 out int vInstanceID;
+
 out uint vNormalSnormOct;
-out uint vUVunorm;
+out uint vUVsnorm;
 
 // Returns ±1
 vec2 signNotZero(vec2 v) {
@@ -24,8 +26,8 @@ void main(void) {
     gl_Position = u_MVPMatrix
                   * vec4(a_Vertex.xyz + sphereOffsets[gl_InstanceID].xyz, 1.0);
     vNormalSnormOct = packSnorm2x16(float32x3_to_oct(a_Vertex.xyz));
-    vUVunorm = packUnorm2x16(a_Vertex.xy);
+    vUVsnorm = packSnorm2x16(a_Vertex.xy);
 
-    // Used in geometry shader to calculate globally unique triangle id 
+    // Used in geometry shader to calculate globally unique triangle id
     vInstanceID = gl_InstanceID;
 }

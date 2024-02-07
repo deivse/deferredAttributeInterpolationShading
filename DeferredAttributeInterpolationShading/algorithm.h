@@ -94,7 +94,11 @@ struct RenderPass
         };
 
         bool compilationResult{};
-        if (std::filesystem::exists(makeFilename("geom"))) {
+        if (std::filesystem::exists(makeFilename("comp"))) {
+            compilationResult
+              = Tools::Shader::CreateComputeShaderProgramFromFile(
+                program, makeFilename("comp").c_str(), getDefinesOrNullptr());
+        } else if (std::filesystem::exists(makeFilename("geom"))) {
             compilationResult = Tools::Shader::CreateShaderProgramFromFile(
               program, makeFilename("vert").c_str(), nullptr, nullptr,
               makeFilename("geom").c_str(), makeFilename("frag").c_str(),

@@ -158,15 +158,7 @@ void compileShaders(void* clientData) {
 // Name: keyboardChanged()
 // Desc:
 //-----------------------------------------------------------------------------
-void keyboardChanged(int key, int action, int mods) {
-    // switch (key) {
-    //     case GLFW_KEY_W:
-    //         // g_WireMode = !g_WireMode;
-    //         break;
-    //     default:
-    //         break;
-    // }
-}
+void keyboardChanged(int key, int action, int mods) {}
 
 void windowResized(const glm::ivec2& resolution) {
     spdlog::trace("Window resized");
