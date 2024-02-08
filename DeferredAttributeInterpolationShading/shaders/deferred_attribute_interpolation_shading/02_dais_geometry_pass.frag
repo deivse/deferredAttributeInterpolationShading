@@ -115,7 +115,7 @@ void main() {
         triangles[index].UVsUnorm[2] = vUVsSnorm[2];
     }
 
-    int coverage = gl_SampleMaskIn[gl_SampleID];
-    TriangleIndex.r = index;
-    // TriangleIndex.r |= coverage;
+    int coverage = gl_SampleMaskIn[0];
+    TriangleIndex.r = index & 0x00FFFFFF;
+    TriangleIndex.r |= coverage << 24;
 }
