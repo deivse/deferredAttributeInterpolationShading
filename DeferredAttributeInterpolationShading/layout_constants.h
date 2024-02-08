@@ -13,7 +13,6 @@ enum class AtomicCounterBuffers : GLuint
 
 enum class UniformBuffers : GLuint
 {
-    Lights = 0,
     SphereOffsets,
     DAIS_Settings
 };
@@ -21,7 +20,8 @@ enum class UniformBuffers : GLuint
 enum class ShaderStorageBuffers : GLuint
 {
     DAIS_Triangles = 0,
-    DAIS_Derivatives
+    DAIS_Derivatives,
+    Lights
 };
 
 enum class Uniforms : GLuint

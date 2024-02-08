@@ -22,20 +22,24 @@ struct Light
 
 struct Scene
 {
-    constexpr static auto MAX_LIGHTS = 2048;
+    constexpr static auto MAX_LIGHTS = 8192;
 
     struct Lights
     {
-        GLuint uniformBuffer = 0; // Uniform buffer with lights
+        GLuint storageBuffer = 0; // storage buffer with lights and lightCount
         GLuint vertexArray
           = 0; // Vertex array with light sphere (attenuation) geometry
-        int numLights = 64; // Number of lights currently used in the scene
-        float rotationSpeed = 0.01;        // Speed of light moving (rotation)
+        int numLights = 256; // Number of lights currently used in the scene
+        float rotationSpeed = 0.005;       // Speed of light moving (rotation)
         glm::vec2 rangeLimits{0.2f, 2.0f}; // Light range limits
         std::vector<Light> lights;
         bool rotate = true;           // Rotate lights
         bool showLightCenters = true; // Render light centers
         bool showLightRanges = false; // Render light ranges
+
+        // 16 bytes for lightCount + padding since the Light array's
+        // alignment in std430 layout is 16 == alignof(Light)
+        constexpr static auto arrayGPUMemoryOffset = 16;
 
         struct LightRangesData
         {
@@ -52,8 +56,6 @@ struct Scene
         void create(float maxDistanceFromWorldOrigin);
         void update();
         void genRandomRadiuses();
-
-        void setUniforms() const;
 
         template<bool UseOwnShader = true>
         void renderLightRanges() {
@@ -78,6 +80,9 @@ struct Scene
             if (showLightCenters) renderLightCenters();
             if (showLightRanges) renderLightRanges();
         }
+
+    private:
+        void createBufferAndVertexArray();
     } lights;
 
     struct Spheres

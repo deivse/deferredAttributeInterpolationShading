@@ -17,7 +17,7 @@ struct Triangle
     // --------------------------------
 };
 
-layout(binding = 2) uniform SettingsBuffer {
+layout(binding = 1) uniform SettingsBuffer {
     int bitwiseModHashSize;
     uint trianglesPerSphere;
 }

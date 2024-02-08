@@ -1,6 +1,8 @@
 #include <scene.h>
 #include <layout_constants.h>
 
+#include <spdlog/spdlog.h>
+
 using Uniforms = layout::Uniforms;
 using UniformBuffers = layout::UniformBuffers;
 
@@ -19,23 +21,73 @@ void Scene::Lights::create(float maxDistanceFromWorldOrigin) {
           = glm::vec4(glm::linearRand(glm::vec3(0.1f), glm::vec3(0.8f)), 0.45f);
     }
 
+    createBufferAndVertexArray();
+}
+
+void Scene::Lights::createBufferAndVertexArray() {
     // Create buffer with lights and bind it as GL_UNIFORM_BUFFER to 0
     // binding point
-    glDeleteBuffers(1, &uniformBuffer);
-    glCreateBuffers(1, &uniformBuffer);
-    glNamedBufferStorage(uniformBuffer, sizeof(Light) * lights.size(),
-                         lights.data(), GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER,
-                     layout::location(UniformBuffers::Lights), uniformBuffer);
+    glDeleteBuffers(1, &storageBuffer);
+    glCreateBuffers(1, &storageBuffer);
+
+    constexpr auto dataSize
+      = Lights::arrayGPUMemoryOffset + sizeof(Light) * MAX_LIGHTS;
+
+    glNamedBufferStorage(storageBuffer, dataSize, nullptr,
+                         GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER,
+                     layout::location(layout::ShaderStorageBuffers::Lights),
+                     storageBuffer);
 
     // Create vertex array to display all lights
     glDeleteVertexArrays(1, &vertexArray);
     glCreateVertexArrays(1, &vertexArray);
-    glVertexArrayVertexBuffer(vertexArray, 0, uniformBuffer, 0,
+    glVertexArrayVertexBuffer(vertexArray, 0, storageBuffer,
+                              Lights::arrayGPUMemoryOffset,
                               2 * sizeof(glm::vec4));
     glVertexArrayAttribBinding(vertexArray, 0, 0);
     glVertexArrayAttribFormat(vertexArray, 0, 3, GL_FLOAT, GL_FALSE, 0);
     glEnableVertexArrayAttrib(vertexArray, 0);
+}
+
+void Scene::Lights::update() {
+    if (rotate) {
+        const float cosAngle = glm::cos(rotationSpeed);
+        const float sinAngle = glm::sin(rotationSpeed);
+        for (auto& light : lights) {
+            light.position.x
+              = light.position.x * cosAngle + light.position.z * sinAngle;
+            light.position.z
+              = -light.position.x * sinAngle + light.position.z * cosAngle;
+        }
+    }
+
+    while (true) {
+        auto* const lightsWritePtr
+          = static_cast<std::byte*>(glMapNamedBufferRange(
+            storageBuffer, 0, 16 + sizeof(Light) * (lights.size()),
+            GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+
+        *reinterpret_cast<GLuint*>(lightsWritePtr) = numLights;
+        std::copy(this->lights.begin(), this->lights.end(),
+                  reinterpret_cast<Light*>(lightsWritePtr
+                                           + Lights::arrayGPUMemoryOffset));
+
+        if (glUnmapNamedBuffer(storageBuffer) == GL_TRUE) {
+            break;
+        }
+        spdlog::warn("Lights storage buffer data store contents have become "
+                     "corrupt during the time the data store was mapped, "
+                     "reinitializing.");
+        createBufferAndVertexArray();
+    }
+}
+
+void Scene::Lights::genRandomRadiuses() {
+    for (auto& light : lights) {
+        light.position.w = glm::linearRand(rangeLimits.x, rangeLimits.y);
+    }
 }
 
 Scene::Lights::LightRangesData::LightRangesData() {
@@ -74,35 +126,6 @@ void Scene::Lights::renderLightCenters() {
     glUseProgram(program);
     glBindVertexArray(vertexArray);
     glDrawArrays(GL_POINTS, 0, numLights);
-}
-
-void Scene::Lights::setUniforms() const {
-    glUniform1ui(layout::location(Uniforms::NumLights), numLights);
-}
-
-void Scene::Lights::update() {
-    if (!rotate) return;
-
-    const float cosAngle = glm::cos(rotationSpeed);
-    const float sinAngle = glm::sin(rotationSpeed);
-    for (auto& light : lights) {
-        light.position.x
-          = light.position.x * cosAngle + light.position.z * sinAngle;
-        light.position.z
-          = -light.position.x * sinAngle + light.position.z * cosAngle;
-    }
-    // Update light buffer
-    glNamedBufferSubData(uniformBuffer, 0, sizeof(Light) * lights.size(),
-                         lights.data());
-}
-
-void Scene::Lights::genRandomRadiuses() {
-    for (auto& light : lights) {
-        light.position.w = glm::linearRand(rangeLimits.x, rangeLimits.y);
-    }
-    // Update light buffer
-    glNamedBufferSubData(uniformBuffer, 0, sizeof(Light) * lights.size(),
-                         lights.data());
 }
 
 void Scene::Spheres::updateGeometry() {

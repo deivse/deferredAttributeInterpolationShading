@@ -127,8 +127,6 @@ void DeferredAttributeInterpolationShading::initialize() {
           glUniform3fv(layout::location(layout::Uniforms::CameraPosition), 1,
                        &cameraPosition.x);
 
-          Scene::get().lights.setUniforms();
-
           // TODO: add to Uniform Buffer
           const glm::mat4 MVPInverse
             = glm::inverse(Variables::Transform.ModelViewProjection);

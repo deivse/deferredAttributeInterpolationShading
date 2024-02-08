@@ -63,8 +63,6 @@ void DeferredShading::initialize() {
                 getTextureForAttachment(attachment));
           }
 
-          Scene::get().lights.setUniforms();
-
           glBindVertexArray(emptyVAO);
           glDrawArrays(GL_TRIANGLES, 0, 3);
 

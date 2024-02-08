@@ -1,7 +1,7 @@
 #version 450 core
 
 layout(location = 0) in vec4 a_Vertex;
-layout(binding = 1) uniform SphereCentersBuffer { vec4 sphereOffsets[2048]; };
+layout(binding = 0) uniform SphereCentersBuffer { vec4 sphereOffsets[2048]; };
 
 uniform mat4 u_MVPMatrix;
 

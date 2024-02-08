@@ -21,11 +21,6 @@ struct TriangleDerivatives
     //  size = 96 bytes, alignment = 16
     // --------------------------------
 };
-layout(std430, binding = 0) buffer TriangleDerivativesShaderStorageBuffer {
-    TriangleDerivatives derivatives[];
-};
-
-layout(binding = 0) uniform isampler2D TriangleIndexSampler;
 
 struct Light
 {
@@ -33,11 +28,20 @@ struct Light
     vec4 color;
 };
 
-layout(binding = 0) uniform LightBuffer { Light lights[2048]; };
-layout(location = 0) uniform vec3 u_CameraPosition;
-layout(location = 1) uniform uint u_NumLights;
-layout(location = 2) uniform mat4 u_MVPInverse;
+layout(std430, binding = 0) buffer TriangleDerivativesShaderStorageBuffer {
+    TriangleDerivatives derivatives[];
+};
+layout(std430, binding = 2) buffer LightBuffer { 
+    uint numLights; // size = 4, offset = 0
+    Light lights[]; // size = 32, offset = 16, alignment = 16
+};
+
+
+layout(binding = 0) uniform isampler2D TriangleIndexSampler;
 layout(binding = 3) uniform sampler2D AlbedoSampler;
+
+layout(location = 0) uniform vec3 u_CameraPosition;
+layout(location = 2) uniform mat4 u_MVPInverse;
 uniform vec4 u_Viewport;
 uniform mat4 u_ProjectionMatrix;
 
@@ -108,7 +112,7 @@ void main() {
 
     vec4 diffSpecColor = texture(AlbedoSampler, uv);
     FragColor = vec4(vec3(0), 1.0);
-    for (uint i = 0; i < u_NumLights; ++i) {
+    for (uint i = 0; i < numLights; ++i) {
         vec3 lightContribution
           = calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
         FragColor.rgb += lightContribution;

@@ -7,7 +7,7 @@ gl_in[];
 
 out gl_PerVertex { vec4 gl_Position; };
 
-layout(binding = 2) uniform SettingsBuffer {
+layout(binding = 1) uniform SettingsBuffer {
     int bitwiseModHashSize;
     uint trianglesPerSphere;
 }
