@@ -1793,12 +1793,12 @@ namespace Texture {
         glCreateTextures(numSamples == 0 ? GL_TEXTURE_2D
                                          : GL_TEXTURE_2D_MULTISAMPLE,
                          1, &texture);
-        glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
         if (numSamples > 0) {
             glTextureStorage2DMultisample(texture, numSamples, format,
                                           resolution.x, resolution.y, GL_TRUE);
         } else {
+            glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
             glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTextureStorage2D(texture, 1, format, resolution.x, resolution.y);

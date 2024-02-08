@@ -18,6 +18,10 @@ class DeferredShading : public Algorithm<DeferredShading>
     GLuint emptyVAO = 0;
     GLuint gBufferFBO = 0;
 
+    uint8_t MSAASampleCount = 4;
+    glm::ivec2 WindowResolution = {0, 0};
+    glm::ivec2 MSAAResolution = {0, 0};
+
     // 0 = color, 1 = normal, 2 = position
     constexpr static std::array<GLenum, 3> colorAttachments{
       GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
@@ -32,14 +36,21 @@ class DeferredShading : public Algorithm<DeferredShading>
         return colorTextures[static_cast<GLuint>(colorAttachment)
                              - static_cast<GLuint>(GL_COLOR_ATTACHMENT0)];
     }
-    void createGBuffer(const glm::ivec2& resolution);
+    void createFramebuffers(const glm::ivec2& resolution);
     void showGBufferTextures();
 
 public:
     ~DeferredShading();
 
+    uint8_t getMSAASampleCount() const { return MSAASampleCount; }
+    void setMSAASampleCount(uint8_t numSamples);
+
     void windowResized(const glm::ivec2& resolution) {
-        createGBuffer(resolution);
+        WindowResolution = resolution;
+        MSAAResolution
+          = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
+            * WindowResolution;
+        createFramebuffers(resolution);
     }
     void initialize();
     void debug() { showGBufferTextures(); };

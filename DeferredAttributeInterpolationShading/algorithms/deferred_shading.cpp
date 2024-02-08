@@ -28,7 +28,11 @@ void DeferredShading::initialize() {
     logDebug("Creating uniform buffer...");
     uniformBuffer.initialize(layout::UniformBuffers::DS_Uniforms, std::nullopt);
 
-    createGBuffer(Variables::WindowSize);
+    WindowResolution = Variables::WindowSize;
+    MSAAResolution
+      = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
+        * Variables::WindowSize;
+    createFramebuffers(Variables::WindowSize);
 
     glLineWidth(2.0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -38,6 +42,11 @@ void DeferredShading::initialize() {
     renderPasses.emplace_back(
       "Reset uniform buffer.",
       [&]() -> void {
+          glViewport(0, 0, MSAAResolution.x, MSAAResolution.y);
+
+          Variables::WindowSize = MSAAResolution;
+          Variables::Transform.update();
+
           auto uniforms = uniformBuffer.mapForWrite();
           uniforms->cameraPosition = Variables::Transform.ModelViewInverse
                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -63,8 +72,8 @@ void DeferredShading::initialize() {
     renderPasses.emplace_back(
       "Deferred Shading",
       [this]() {
-          glBindFramebuffer(GL_FRAMEBUFFER, 0);
-          glClear(GL_COLOR_BUFFER_BIT);
+          // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+          // glClear(GL_COLOR_BUFFER_BIT);
           glDisable(GL_DEPTH_TEST);
 
           for (auto attachment : colorAttachments) {
@@ -83,12 +92,15 @@ void DeferredShading::initialize() {
     renderPasses.emplace_back(
       "Restore Z-Buffer",
       [&]() -> void {
+          Variables::WindowSize = WindowResolution;
+          glViewport(0, 0, Variables::WindowSize.x, Variables::WindowSize.y);
+          Variables::Transform.update();
+
           glBindFramebuffer(GL_READ_FRAMEBUFFER, gBufferFBO);
           glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-          glBlitFramebuffer(0, 0, Variables::WindowSize.x,
-                            Variables::WindowSize.y, 0, 0,
+          glBlitFramebuffer(0, 0, MSAAResolution.x, MSAAResolution.y, 0, 0,
                             Variables::WindowSize.x, Variables::WindowSize.y,
-                            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                            GL_COLOR_BUFFER_BIT, GL_LINEAR);
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
       },
       &restoreDepth);
@@ -117,16 +129,24 @@ void DeferredShading::showGBufferTextures() {
                               0, 1);
 }
 
-void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
+void DeferredShading::setMSAASampleCount(uint8_t numSamples) {
+    MSAASampleCount = numSamples;
+    MSAAResolution
+      = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
+        * WindowResolution;
+    createFramebuffers(Variables::WindowSize);
+}
+
+void DeferredShading::createFramebuffers(const glm::ivec2& resolution) {
     logDebug("Creating GBuffer ...");
 
     Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,
-                             resolution);
+                             MSAAResolution);
 
     for (uint8_t i = 0; i < static_cast<uint8_t>(colorAttachments.size());
          i++) {
         Tools::Texture::Create2D(colorTextures[i], colorTextureFormats[i],
-                                 resolution);
+                                 MSAAResolution, 0);
     }
 
     // Create a framebuffer object ...

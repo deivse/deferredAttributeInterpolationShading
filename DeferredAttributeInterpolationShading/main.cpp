@@ -78,6 +78,34 @@ int showGUI() {
         std::visit([](auto&& algo) { algo->initialize(); }, g_AlgorithmVariant);
         resetAlgorithm();
     }
+
+    static uint8_t MSAASamples;
+    switch (std::visit([](auto&& algo) { return algo->getMSAASampleCount(); },
+                       g_AlgorithmVariant)) {
+        case 4:
+            MSAASamples = 1;
+            break;
+        case 8:
+            MSAASamples = 2;
+            break;
+        case 16:
+            MSAASamples = 3;
+            break;
+        default:
+            MSAASamples = 0;
+    }
+
+    if (ImGui::Combo(
+          "MSAA/SSAA", reinterpret_cast<int*>(&MSAASamples),
+          "Disabled\0" // NOLINT(bugprone-string-literal-with-embedded-nul)
+          "x4\0"
+          "x8\0"
+          "x16")) {
+        if (MSAASamples > 0) MSAASamples = 1 << (MSAASamples + 1);
+        std::visit([](auto&& algo) { algo->setMSAASampleCount(MSAASamples); },
+                   g_AlgorithmVariant);
+    }
+
     ImGui::Checkbox("Rotate lights", &Scene::get().lights.rotate);
     ImGui::Checkbox("Show light centers",
                     &Scene::get().lights.showLightCenters);

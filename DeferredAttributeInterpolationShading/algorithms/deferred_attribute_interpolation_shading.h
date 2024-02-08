@@ -43,6 +43,8 @@ class DeferredAttributeInterpolationShading
     OptionsMap options;
     std::vector<RenderPass> renderPasses;
 
+    uint8_t MSAASampleCount = 4;
+
     void createAtomicCounterBuffer();
     void createUniformBuffer() {
         logDebug("Creating settings uniform buffer...");
@@ -56,6 +58,11 @@ class DeferredAttributeInterpolationShading
     void resetHashTable();
 
 public:
+    void setMSAASampleCount(uint8_t numSamples) {
+        // TODO
+    }
+    uint8_t getMSAASampleCount() const { return MSAASampleCount; }
+
     ~DeferredAttributeInterpolationShading();
 
     void windowResized(const glm::ivec2& resolution) { createFBO(resolution); }

@@ -10,17 +10,18 @@ struct Light
     vec4 position; // (x, y, z, radius)
     vec4 color;
 };
-layout(std430, binding = 2) buffer LightBuffer { 
+layout(std430, binding = 2) buffer LightBuffer {
     uint numLights; // size = 4, offset = 0
     Light lights[]; // size = 32, offset = 16, alignment = 16
 };
 
 layout(std140, binding = 2) uniform DSUniforms {
-    vec4 cameraPosition;       // size = 16, offset = 0, alignment = 16
-    mat4 MVPMatrix;            // size = 64, offset = 16, alignment = 16
-    
+    vec4 cameraPosition; // size = 16, offset = 0, alignment = 16
+    mat4 MVPMatrix;      // size = 64, offset = 16, alignment = 16
+    uint MSAASamples;    // size = 4, offset = 80, alignment = 4
+
     // ---- std140:
-    // size = 80, alignment = 16
+    // size = 84, alignment = 16
     // -------------------------
 };
 
@@ -68,10 +69,10 @@ void main(void) {
     vec4 position = texelFetch(VertexSampler, pixel, 0);
 
 #ifdef discardPixelsWithoutGeometry
-    // OPTIMIZATION: Don't calculate lighting for pixels that don't contain any
-    // geometry
+    // OPTIMIZATION: Don't calculate lighting for pixels that don't contain
+    // any geometry
     if (position.w == 0) {
-        discard;
+        FragColor = vec4(vec3(0.0), 1.0);
     }
 #endif
 
