@@ -36,14 +36,24 @@ layout(std430, binding = 2) buffer LightBuffer {
     Light lights[]; // size = 32, offset = 16, alignment = 16
 };
 
+layout(std140, binding = 1) uniform DAISUniforms {
+    vec4 cameraPosition;       // size = 16, offset = 0, alignment = 16
+    mat4 MVPMatrix;            // size = 64, offset = 16, alignment = 16
+    mat4 MVPMatrixInv;         // size = 64, offset = 80, alignment = 16
+    vec4 Viewport;             // size = 16, offset = 144, alignment = 16
+    int bitwiseModHashSize;    // size = 4, offset = 160, alignment = 4
+    uint trianglesPerSphere;   // size = 4, offset = 164, alignment = 4
+    float projectionMatrix_32; // size = 4, offset = 168, alignment = 4
+    float projectionMatrix_22; // size = 4, offset = 172, alignment = 4
+
+    // ---- std140:
+    // size = 176, alignment = 16
+    // -------------------------
+};
+
 
 layout(binding = 0) uniform isampler2D TriangleIndexSampler;
 layout(binding = 3) uniform sampler2D AlbedoSampler;
-
-layout(location = 0) uniform vec3 u_CameraPosition;
-layout(location = 2) uniform mat4 u_MVPInverse;
-uniform vec4 u_Viewport;
-uniform mat4 u_ProjectionMatrix;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -70,7 +80,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     vec3 lightContribution = color.rgb * diffSpecColor.rgb * NdotL;
 
     // Calculate specular color component
-    vec3 viewDir = normalize(u_CameraPosition - vertex);
+    vec3 viewDir = normalize(cameraPosition.xyz - vertex);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float NdotH = pow(max(dot(normal, halfwayDir), 0.0), 5.0);
     // Multiply by NdotL to
@@ -86,19 +96,19 @@ void main() {
 
     // TODO: do ndcPos.xy computation in vertex shader
     // https://stackoverflow.com/questions/49262877/opengl-ndc-and-coordinates
-    vec2 viewportSize = u_Viewport.zw - u_Viewport.xy;
+    vec2 viewportSize = Viewport.zw - Viewport.xy;
     vec4 ndcPos;
-    ndcPos.xy = (gl_FragCoord.xy - u_Viewport.xy) / viewportSize * 2.0 - 1.0;
+    ndcPos.xy = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2.0 - 1.0;
 
     float oneOverW
       = (derivatives[index].oneOverW_fixed + ndcPos.x * derivatives[index].dW_dX
          + ndcPos.y * derivatives[index].dW_dY);
 
-    ndcPos.z = u_ProjectionMatrix[3][2] * oneOverW - u_ProjectionMatrix[2][2];
+    ndcPos.z = projectionMatrix_32 * oneOverW - projectionMatrix_22;
     ndcPos.w = 1;
 
     vec4 clipPos = ndcPos / oneOverW;
-    vec4 worldPos = u_MVPInverse * clipPos;
+    vec4 worldPos = MVPMatrixInv * clipPos;
 
     vec3 normal = (derivatives[index].normal_fixed //
                    + ndcPos.x * derivatives[index].dNormal_dX

@@ -32,7 +32,7 @@ void DeferredAttributeInterpolationShading::initialize() {
     createSSBO(triangleSSBO, layout::ShaderStorageBuffers::DAIS_Triangles);
     createSSBO(derivativeSSBO, layout::ShaderStorageBuffers::DAIS_Derivatives);
     createAtomicCounterBuffer();
-    createSettingsUniformBuffer();
+    createUniformBuffer();
     createFBO(Variables::WindowSize);
 
     glLineWidth(2.0);
@@ -40,6 +40,42 @@ void DeferredAttributeInterpolationShading::initialize() {
     glDisable(GL_DITHER);
 
     glGenVertexArrays(1, &emptyVAO);
+
+    renderPasses.emplace_back(
+      "Reset buffers",
+      [&]() -> void {
+          resetHashTable();
+          auto* address = static_cast<GLuint*>(
+            glMapNamedBuffer(atomicCounterBuffer, GL_WRITE_ONLY));
+          *address = 0;
+          if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
+              logWarning("Triangle SSBO data store contents have become "
+                         "corrupt during the time the data store was mapped, "
+                         "reinitializing.");
+              createAtomicCounterBuffer();
+          }
+
+          const auto cameraPosition = Variables::Transform.ModelViewInverse
+                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+          const glm::mat4 MVPInverse
+            = glm::inverse(Variables::Transform.ModelViewProjection);
+
+          {
+              // update uniform buffer
+              auto uniforms = uniformBuffer.mapForWrite();
+              *uniforms = UniformBufferData{
+                CommonUniformBufferData{
+                  cameraPosition, Variables::Transform.ModelViewProjection},
+                MVPInverse,
+                Variables::Transform.Viewport,
+                hashTableSize - 1,
+                static_cast<GLuint>(Scene::get().spheres.trianglesPerSphere),
+                Variables::Transform.Projection[3][2],
+                Variables::Transform.Projection[2][2],
+              };
+          }
+      },
+      nullptr);
 
     // Add rendering passes
     renderPasses.emplace_back(
@@ -53,36 +89,12 @@ void DeferredAttributeInterpolationShading::initialize() {
       "01_dais_depth_prepass");
 
     renderPasses.emplace_back(
-      "Reset cache and triangle buffer",
-      [&]() -> void {
-          resetHashTable();
-          auto* address = static_cast<GLuint*>(
-            glMapNamedBuffer(atomicCounterBuffer, GL_WRITE_ONLY));
-          *address = 0;
-          if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
-              logWarning("Triangle SSBO data store contents have become "
-                         "corrupt during the time the data store was mapped, "
-                         "reinitializing.");
-              createAtomicCounterBuffer();
-          }
-      },
-      nullptr);
-
-    renderPasses.emplace_back(
       "Geometry Pass",
       [&]() -> void {
           glDepthFunc(GL_EQUAL);
           constexpr auto clearValue = glm::uvec4(-1);
           glClearNamedFramebufferuiv(FBO, GL_COLOR, 0,
                                      glm::value_ptr(clearValue));
-
-          // update settings buffer
-          {
-              auto settings = uniformBuffer.mapForWrite();
-              settings->bitwiseModHashSize = hashTableSize - 1;
-              settings->numTrianglesPerSphere
-                = Scene::get().spheres.trianglesPerSphere;
-          }
 
           Scene::get().update();
           Scene::get().spheres.render();
@@ -113,17 +125,6 @@ void DeferredAttributeInterpolationShading::initialize() {
       [&]() -> void {
           glDisable(GL_DEPTH_TEST);
           glClear(GL_COLOR_BUFFER_BIT);
-
-          const auto cameraPosition = Variables::Transform.ModelViewInverse
-                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-          glUniform3fv(layout::location(layout::Uniforms::CameraPosition), 1,
-                       &cameraPosition.x);
-
-          // TODO: add to Uniform Buffer
-          const glm::mat4 MVPInverse
-            = glm::inverse(Variables::Transform.ModelViewProjection);
-          glUniformMatrix4fv(layout::location(layout::Uniforms::MVPInverse), 1,
-                             GL_FALSE, glm::value_ptr(MVPInverse));
 
           glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
                               gl::GLenum::GL_COLOR_ATTACHMENT0)),
@@ -184,14 +185,6 @@ void DeferredAttributeInterpolationShading::createAtomicCounterBuffer() {
       GL_ATOMIC_COUNTER_BUFFER,
       layout::location(layout::AtomicCounterBuffers::DAIS_TriangleCounter),
       atomicCounterBuffer);
-}
-
-void DeferredAttributeInterpolationShading::createSettingsUniformBuffer(
-  std::optional<UniformBufferData> initialData) {
-    logDebug("Creating settings uniform buffer...");
-
-    uniformBuffer.initialize(layout::UniformBuffers::DAIS_Uniforms,
-                             initialData);
 }
 
 // NOLINTNEXTLINE(readability-make-member-function-const)

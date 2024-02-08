@@ -21,11 +21,15 @@ class DeferredAttributeInterpolationShading
     constexpr static size_t TRIANGLE_SIZE = 72;
     constexpr static size_t MAX_TRIANGLE_COUNT = 1036800;
 
-    struct UniformBufferData
+    struct UniformBufferData : public CommonUniformBufferData
     {
         /// @brief triangleID & bitwiseModHashSize == triangleID % hashTableSize
-        int32_t bitwiseModHashSize;
-        uint32_t numTrianglesPerSphere;
+        glm::mat4x4 MVPInverse;
+        glm::vec4 viewport;
+        GLint bitwiseModHashSize;
+        GLuint numTrianglesPerSphere;
+        GLfloat projectionMatrix_32;
+        GLfloat projectionMatrix_22;
     };
     UniformBufferObject<UniformBufferData> uniformBuffer;
     GLuint triangleSSBO = 0, derivativeSSBO = 0;
@@ -40,9 +44,11 @@ class DeferredAttributeInterpolationShading
     std::vector<RenderPass> renderPasses;
 
     void createAtomicCounterBuffer();
-    void
-      createSettingsUniformBuffer(std::optional<UniformBufferData> initialData
-                                  = std::nullopt);
+    void createUniformBuffer() {
+        logDebug("Creating settings uniform buffer...");
+        uniformBuffer.initialize(layout::UniformBuffers::DAIS_Uniforms,
+                                 std::nullopt);
+    }
     void createHashTableResources();
     void createSSBO(GLuint& ssbo, layout::ShaderStorageBuffers binding);
     void createFBO(const glm::ivec2& resolution);

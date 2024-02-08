@@ -40,6 +40,7 @@ struct UniformBufferObject
 
     public:
         DataT* operator->() { return data; }
+        DataT& operator*() { return *data; }
 
         UniformBufferWriteRef(const UniformBufferWriteRef& other) = delete;
         UniformBufferWriteRef(UniformBufferWriteRef&& other) = delete;
@@ -74,8 +75,10 @@ struct UniformBufferObject
 
     UniformBufferWriteRef mapForWrite(BufferAccessMask additionalAccessFlags
                                       = BufferAccessMask::GL_NONE_BIT) {
-        return UniformBufferWriteRef(*this, static_cast<DataT*>(glMapNamedBufferRange(
-          buffer, 0, sizeof(DataT), GL_MAP_WRITE_BIT | additionalAccessFlags)));
+        return UniformBufferWriteRef(
+          *this, static_cast<DataT*>(glMapNamedBufferRange(
+                   buffer, 0, sizeof(DataT),
+                   GL_MAP_WRITE_BIT | additionalAccessFlags)));
     }
 
     ~UniformBufferObject() { glDeleteBuffers(1, &buffer); }
@@ -85,7 +88,7 @@ struct UniformBufferObject
  * @brief Uniform buffer data that is shared by both algorithms.
  *
  */
-struct BaseUniformBufferData
+struct CommonUniformBufferData
 {
     glm::vec4 cameraPosition;
     glm::mat4 MVPMatrix;
