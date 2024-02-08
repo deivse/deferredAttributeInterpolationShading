@@ -72,7 +72,7 @@ void DeferredAttributeInterpolationShading::initialize() {
                 static_cast<GLuint>(Scene::get().spheres.trianglesPerSphere),
                 Variables::Transform.Projection[3][2],
                 Variables::Transform.Projection[2][2],
-              };
+                MSAASampleCount};
           }
       },
       nullptr);
@@ -126,9 +126,13 @@ void DeferredAttributeInterpolationShading::initialize() {
           glDisable(GL_DEPTH_TEST);
           glClear(GL_COLOR_BUFFER_BIT);
 
+          // Always bind both textures to avoid warnings, one will be empty.
           glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
                               gl::GLenum::GL_COLOR_ATTACHMENT0)),
                             triangleAddressFBOTexture);
+          glBindTextureUnit(
+            layout::location(layout::TextureUnits::DAIS_TriangleAddressMS),
+            triangleAddressFBOTextureMS);
 
           glBindVertexArray(emptyVAO);
           glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -150,13 +154,23 @@ void DeferredAttributeInterpolationShading::initialize() {
       &restoreDepth);
 }
 
+void DeferredAttributeInterpolationShading::setMSAASampleCount(
+  const uint8_t numSamples) {
+    MSAASampleCount = numSamples;
+    createFBO(Variables::WindowSize);
+}
+
 void DeferredAttributeInterpolationShading::createFBO(
   const glm::ivec2& resolution) {
     logDebug("Creating FBO...");
 
-    Tools::Texture::Create2D(triangleAddressFBOTexture, GL_R32I, resolution);
+    Tools::Texture::Create2D(triangleAddressFBOTexture, GL_R32I,
+                             MSAASampleCount ? glm::ivec2(1, 1) : resolution);
+    Tools::Texture::Create2D(triangleAddressFBOTextureMS, GL_R32I,
+                             MSAASampleCount ? resolution : glm::ivec2{1, 1},
+                             MSAASampleCount > 0 ? MSAASampleCount : 1);
     Tools::Texture::Create2D(FBOdepthTexture, gl::GLenum::GL_DEPTH24_STENCIL8,
-                             resolution);
+                             resolution, MSAASampleCount);
 
     glDeleteFramebuffers(1, &FBO);
     glCreateFramebuffers(1, &FBO);
@@ -164,7 +178,9 @@ void DeferredAttributeInterpolationShading::createFBO(
     glNamedFramebufferDrawBuffers(FBO, 1, &GL_COLOR_ATTACHMENT0);
 
     glNamedFramebufferTexture(FBO, GL_COLOR_ATTACHMENT0,
-                              triangleAddressFBOTexture, 0);
+                              MSAASampleCount > 0 ? triangleAddressFBOTextureMS
+                                                  : triangleAddressFBOTexture,
+                              0);
     glNamedFramebufferTexture(FBO, GL_DEPTH_ATTACHMENT, FBOdepthTexture, 0);
 
     assert(glGetError() == GL_NO_ERROR);

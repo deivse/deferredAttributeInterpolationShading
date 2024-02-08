@@ -88,9 +88,6 @@ int showGUI() {
         case 8:
             MSAASamples = 2;
             break;
-        case 16:
-            MSAASamples = 3;
-            break;
         default:
             MSAASamples = 0;
     }
@@ -99,8 +96,7 @@ int showGUI() {
           "MSAA/SSAA", reinterpret_cast<int*>(&MSAASamples),
           "Disabled\0" // NOLINT(bugprone-string-literal-with-embedded-nul)
           "x4\0"
-          "x8\0"
-          "x16")) {
+          "x8")) {
         if (MSAASamples > 0) MSAASamples = 1 << (MSAASamples + 1);
         std::visit([](auto&& algo) { algo->setMSAASampleCount(MSAASamples); },
                    g_AlgorithmVariant);

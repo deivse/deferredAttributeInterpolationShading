@@ -30,6 +30,7 @@ class DeferredAttributeInterpolationShading
         GLuint numTrianglesPerSphere;
         GLfloat projectionMatrix_32;
         GLfloat projectionMatrix_22;
+        GLuint numSamples;
     };
     UniformBufferObject<UniformBufferData> uniformBuffer;
     GLuint triangleSSBO = 0, derivativeSSBO = 0;
@@ -38,7 +39,8 @@ class DeferredAttributeInterpolationShading
     // Cache and Locks for geometry sampling stage.
     GLuint cacheTexture = 0, locksTexture = 0;
 
-    GLuint triangleAddressFBOTexture = 0, FBOdepthTexture = 0;
+    GLuint triangleAddressFBOTexture = 0, triangleAddressFBOTextureMS = 0,
+           FBOdepthTexture = 0;
 
     OptionsMap options;
     std::vector<RenderPass> renderPasses;
@@ -58,9 +60,7 @@ class DeferredAttributeInterpolationShading
     void resetHashTable();
 
 public:
-    void setMSAASampleCount(uint8_t numSamples) {
-        // TODO
-    }
+    void setMSAASampleCount(uint8_t numSamples);
     uint8_t getMSAASampleCount() const { return MSAASampleCount; }
 
     ~DeferredAttributeInterpolationShading();

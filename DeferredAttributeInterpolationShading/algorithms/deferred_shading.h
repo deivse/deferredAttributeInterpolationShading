@@ -36,7 +36,7 @@ class DeferredShading : public Algorithm<DeferredShading>
         return colorTextures[static_cast<GLuint>(colorAttachment)
                              - static_cast<GLuint>(GL_COLOR_ATTACHMENT0)];
     }
-    void createFramebuffers(const glm::ivec2& resolution);
+    void createGBuffer(const glm::ivec2& resolution);
     void showGBufferTextures();
 
 public:
@@ -50,7 +50,7 @@ public:
         MSAAResolution
           = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
             * WindowResolution;
-        createFramebuffers(resolution);
+        createGBuffer(resolution);
     }
     void initialize();
     void debug() { showGBufferTextures(); };

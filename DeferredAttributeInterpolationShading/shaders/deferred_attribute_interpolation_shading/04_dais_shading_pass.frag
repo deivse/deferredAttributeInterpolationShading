@@ -31,7 +31,7 @@ struct Light
 layout(std430, binding = 0) buffer TriangleDerivativesShaderStorageBuffer {
     TriangleDerivatives derivatives[];
 };
-layout(std430, binding = 2) buffer LightBuffer { 
+layout(std430, binding = 2) buffer LightBuffer {
     uint numLights; // size = 4, offset = 0
     Light lights[]; // size = 32, offset = 16, alignment = 16
 };
@@ -45,14 +45,15 @@ layout(std140, binding = 1) uniform DAISUniforms {
     uint trianglesPerSphere;   // size = 4, offset = 164, alignment = 4
     float projectionMatrix_32; // size = 4, offset = 168, alignment = 4
     float projectionMatrix_22; // size = 4, offset = 172, alignment = 4
+    uint numSamples;           // size = 4, offset = 176, alignment = 4
 
     // ---- std140:
-    // size = 176, alignment = 16
+    // size = 180, alignment = 16
     // -------------------------
 };
 
-
 layout(binding = 0) uniform isampler2D TriangleIndexSampler;
+layout(binding = 4) uniform isampler2DMS TriangleAddressMultiSampler;
 layout(binding = 3) uniform sampler2D AlbedoSampler;
 
 layout(location = 0) out vec4 FragColor;
@@ -89,13 +90,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     return lightContribution * attenuation;
 }
 
-void main() {
-    int index = texelFetch(TriangleIndexSampler, ivec2(gl_FragCoord.xy), 0).r;
-
-    if (index == -1) return;
-
-    // TODO: do ndcPos.xy computation in vertex shader
-    // https://stackoverflow.com/questions/49262877/opengl-ndc-and-coordinates
+vec3 shadePixel(int index) {
     vec2 viewportSize = Viewport.zw - Viewport.xy;
     vec4 ndcPos;
     ndcPos.xy = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2.0 - 1.0;
@@ -121,10 +116,48 @@ void main() {
               / oneOverW;
 
     vec4 diffSpecColor = texture(AlbedoSampler, uv);
-    FragColor = vec4(vec3(0), 1.0);
+    vec3 retval = vec3(0);
     for (uint i = 0; i < numLights; ++i) {
         vec3 lightContribution
           = calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
-        FragColor.rgb += lightContribution;
+        retval += lightContribution;
+    }
+    return retval;
+}
+
+// void tmp() {
+//     // mask stores which samples need to be shaded
+//     uint mask = (1 << 4) - 1;
+//     vec3 accum = vec3(0.0);
+//     while (mask > 0) {
+//         int i = findLSB(mask); // next sample index to shade
+//         uint vs = read_visibility_sample(i);
+//         if (vs != -1) {                  // is there a triangle referenced?
+//             uint sample_mask = vs >> 24; // extract coverage
+//             uint t = vs & 0x00ffffff;    // extract triangle idx
+//             accum += bitCount(sample_mask) * compute_shading(t);
+//             mask &= ~sample_mask; // mark shaded samples
+//         } else {                  // no triangle referenced
+//             accum += vec3(0.0); // accumulate background color
+//             mask &= ~(1 << i); // mark shaded sample
+//         }
+//     }
+//     return accum / float(NUM_VISIBILITY_SAMPLES)
+// }
+
+void main() {
+    if (numSamples > 1) {
+        for (int i = 0; i < numSamples; ++i) {
+            int index = texelFetch(TriangleAddressMultiSampler,
+                                   ivec2(gl_FragCoord.xy), i)
+                          .r;
+            if (index != -1)
+                FragColor += vec4(shadePixel(index), 1.0) / float(numSamples);
+        }
+    } else {
+        int index
+          = texelFetch(TriangleIndexSampler, ivec2(gl_FragCoord.xy), 0).r;
+        if (index == -1) discard;
+        FragColor = vec4(shadePixel(index), 1.0);
     }
 }

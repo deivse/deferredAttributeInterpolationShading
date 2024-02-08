@@ -1,5 +1,7 @@
 #version 450 core
+#extension GL_ARB_post_depth_coverage : require
 
+layout(post_depth_coverage) in;
 layout(early_fragment_tests) in;
 
 struct Triangle
@@ -26,9 +28,10 @@ layout(std140, binding = 1) uniform DAISUniforms {
     uint trianglesPerSphere;   // size = 4, offset = 164, alignment = 4
     float projectionMatrix_32; // size = 4, offset = 168, alignment = 4
     float projectionMatrix_22; // size = 4, offset = 172, alignment = 4
+    uint numSamples;           // size = 4, offset = 176, alignment = 4
 
     // ---- std140:
-    // size = 176, alignment = 16
+    // size = 180, alignment = 16
     // -------------------------
 };
 
@@ -112,5 +115,7 @@ void main() {
         triangles[index].UVsUnorm[2] = vUVsSnorm[2];
     }
 
+    int coverage = gl_SampleMaskIn[gl_SampleID];
     TriangleIndex.r = index;
+    // TriangleIndex.r |= coverage;
 }

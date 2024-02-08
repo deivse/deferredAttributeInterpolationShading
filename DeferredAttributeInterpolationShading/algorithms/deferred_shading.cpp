@@ -32,7 +32,7 @@ void DeferredShading::initialize() {
     MSAAResolution
       = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
         * Variables::WindowSize;
-    createFramebuffers(Variables::WindowSize);
+    createGBuffer(Variables::WindowSize);
 
     glLineWidth(2.0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -146,10 +146,10 @@ void DeferredShading::setMSAASampleCount(uint8_t numSamples) {
     MSAAResolution
       = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
         * WindowResolution;
-    createFramebuffers(Variables::WindowSize);
+    createGBuffer(Variables::WindowSize);
 }
 
-void DeferredShading::createFramebuffers(const glm::ivec2& resolution) {
+void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
     logDebug("Creating GBuffer ...");
 
     Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,

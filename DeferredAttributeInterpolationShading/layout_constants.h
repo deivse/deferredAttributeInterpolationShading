@@ -41,6 +41,7 @@ enum class TextureUnits : GLuint
     DS_Normal,
     DS_Vertex,
     Albedo,
+    DAIS_TriangleAddressMS
 };
 
 enum class ImageUnits : GLuint
