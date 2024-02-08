@@ -6,8 +6,8 @@
 namespace layout {
 using namespace gl;
 
-
-enum class AtomicCounterBuffers : GLuint {
+enum class AtomicCounterBuffers : GLuint
+{
     DAIS_TriangleCounter = 0
 };
 
@@ -18,7 +18,8 @@ enum class UniformBuffers : GLuint
     DAIS_Settings
 };
 
-enum class ShaderStorageBuffers: GLuint {
+enum class ShaderStorageBuffers : GLuint
+{
     DAIS_Triangles = 0,
     DAIS_Derivatives
 };
@@ -26,8 +27,9 @@ enum class ShaderStorageBuffers: GLuint {
 enum class Uniforms : GLuint
 {
     CameraPosition = 0,
-    NumLights
-    //TODO: use uniform buffer
+    NumLights,
+    MVPInverse
+    // TODO: use uniform buffer
 };
 
 enum class TextureUnits : GLuint
@@ -50,7 +52,8 @@ constexpr TextureUnits texSamplerForFBOAttachment(GLenum colorAttachment) {
     if (colorAttachment < gl::GLenum::GL_COLOR_ATTACHMENT0
         || colorAttachment > gl::GLenum::GL_COLOR_ATTACHMENT31)
         throw;
-    if (static_cast<GLuint>(TextureUnits::DS_Color_DAIS_TriangleAddress) != 0) throw;
+    if (static_cast<GLuint>(TextureUnits::DS_Color_DAIS_TriangleAddress) != 0)
+        throw;
 
     return static_cast<TextureUnits>(
       static_cast<GLuint>(colorAttachment)

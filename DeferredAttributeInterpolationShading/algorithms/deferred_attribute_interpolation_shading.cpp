@@ -126,7 +126,15 @@ void DeferredAttributeInterpolationShading::initialize() {
                                       * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
           glUniform3fv(layout::location(layout::Uniforms::CameraPosition), 1,
                        &cameraPosition.x);
-                       
+
+          Scene::get().lights.setUniforms();
+
+          // TODO: add to Uniform Buffer
+          const glm::mat4 MVPInverse
+            = glm::inverse(Variables::Transform.ModelViewProjection);
+          glUniformMatrix4fv(layout::location(layout::Uniforms::MVPInverse), 1,
+                             GL_FALSE, glm::value_ptr(MVPInverse));
+
           glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
                               gl::GLenum::GL_COLOR_ATTACHMENT0)),
                             triangleAddressFBOTexture);
@@ -245,8 +253,6 @@ void DeferredAttributeInterpolationShading::createSSBO(
 
     glNamedBufferStorage(ssbo, dataSize, nullptr, GL_CLIENT_STORAGE_BIT);
 
-    glBindBufferBase(
-      GL_SHADER_STORAGE_BUFFER,
-      layout::location(binding), ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, layout::location(binding), ssbo);
 }
 } // namespace Algorithms

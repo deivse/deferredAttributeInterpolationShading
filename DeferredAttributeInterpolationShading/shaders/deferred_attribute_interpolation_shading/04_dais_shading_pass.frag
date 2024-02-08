@@ -36,8 +36,10 @@ struct Light
 layout(binding = 0) uniform LightBuffer { Light lights[2048]; };
 layout(location = 0) uniform vec3 u_CameraPosition;
 layout(location = 1) uniform uint u_NumLights;
+layout(location = 2) uniform mat4 u_MVPInverse;
 layout(binding = 3) uniform sampler2D AlbedoSampler;
 uniform vec4 u_Viewport;
+uniform mat4 u_ProjectionMatrix;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -74,37 +76,41 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
 }
 
 void main() {
-    ivec2 pixel = ivec2(gl_FragCoord.xy);
-    int index = texelFetch(TriangleIndexSampler, pixel, 0).r;
+    int index = texelFetch(TriangleIndexSampler, ivec2(gl_FragCoord.xy), 0).r;
 
-    // FragColor = vec4(texelFetch(TriangleIndexSampler, pixel, 0).rgb, 1.0);
     if (index == -1) return;
 
-    // TODO: do ndc computation in vertex shader
+    // TODO: do ndcPos.xy computation in vertex shader
     // https://stackoverflow.com/questions/49262877/opengl-ndc-and-coordinates
     vec2 viewportSize = u_Viewport.zw - u_Viewport.xy;
-    vec2 ndc = (gl_FragCoord.xy - u_Viewport.xy) / viewportSize * 2.0 - 1.0;
+    vec4 ndcPos;
+    ndcPos.xy = (gl_FragCoord.xy - u_Viewport.xy) / viewportSize * 2.0 - 1.0;
 
     float oneOverW
-      = (derivatives[index].oneOverW_fixed + ndc.x * derivatives[index].dW_dX
-         + ndc.y * derivatives[index].dW_dY);
+      = (derivatives[index].oneOverW_fixed + ndcPos.x * derivatives[index].dW_dX
+         + ndcPos.y * derivatives[index].dW_dY);
 
-    vec3 normal = derivatives[index].normal_fixed
-                  + ndc.x * derivatives[index].dNormal_dX
-                  + ndc.y * derivatives[index].dNormal_dY;
-    normal /= oneOverW;
+    ndcPos.z = u_ProjectionMatrix[3][2] * oneOverW - u_ProjectionMatrix[2][2];
+    ndcPos.w = 1;
 
-    vec2 uv = derivatives[index].UV_fixed + ndc.x * derivatives[index].dUV_dX
-              + ndc.y * derivatives[index].dUV_dY;
-    uv /= oneOverW;
+    vec4 clipPos = ndcPos / oneOverW;
+    vec4 worldPos = u_MVPInverse * clipPos;
+
+    vec3 normal = (derivatives[index].normal_fixed //
+                   + ndcPos.x * derivatives[index].dNormal_dX
+                   + ndcPos.y * derivatives[index].dNormal_dY)
+                  / oneOverW;
+
+    vec2 uv = (derivatives[index].UV_fixed //
+               + ndcPos.x * derivatives[index].dUV_dX
+               + ndcPos.y * derivatives[index].dUV_dY)
+              / oneOverW;
 
     vec4 diffSpecColor = texture(AlbedoSampler, uv);
-
-    FragColor = vec4(diffSpecColor.rgb, 1.0);
-    // for (uint i = 0; i < u_NumLights; ++i) {
-    //     vec3 lightContribution
-    //       = calculateLightContribution(i, position.xyz, normal,
-    //       diffSpecColor);
-    //     FragColor.rgb += lightContribution;
-    // }
+    FragColor = vec4(vec3(0), 1.0);
+    for (uint i = 0; i < u_NumLights; ++i) {
+        vec3 lightContribution
+          = calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
+        FragColor.rgb += lightContribution;
+    }
 }
