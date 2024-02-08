@@ -93,7 +93,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
 vec3 shadePixel(int index) {
     vec2 viewportSize = Viewport.zw - Viewport.xy;
     vec4 ndcPos;
-    ndcPos.xy = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2.0 - 1.0; 
+    ndcPos.xy = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2.0 - 1.0;
 
     float oneOverW
       = (derivatives[index].oneOverW_fixed + ndcPos.x * derivatives[index].dW_dX
@@ -125,7 +125,6 @@ vec3 shadePixel(int index) {
     return retval;
 }
 
-
 // TODO: image brighter at 8X MSAA??
 vec3 shadeMultisample() {
     // mask stores which samples need to be shaded
@@ -133,16 +132,19 @@ vec3 shadeMultisample() {
     vec3 accum = vec3(0.0);
     while (mask > 0) {
         int i = findLSB(mask); // next sample index to shade
-        int vs = texelFetch(TriangleAddressMultiSampler,
-                                   ivec2(gl_FragCoord.xy), i).r;
-        if (vs != -1) {                  // is there a triangle referenced?
-            uint sample_mask = vs >> 24; // extract coverage
-            int t = vs & 0x00ffffff;    // extract triangle idx
+        uint vs
+          = texelFetch(TriangleAddressMultiSampler, ivec2(gl_FragCoord.xy), i)
+              .r;
+        if (vs != -1) {
+            // contains triangle reference
+            uint sample_mask = vs >> 24;  // extract coverage
+            int t = int(vs) & 0x00ffffff; // extract triangle idx
             accum += bitCount(sample_mask) * shadePixel(t);
             mask &= ~sample_mask; // mark shaded samples
-        } else {                  // no triangle referenced
-            accum += vec3(0.0); // accumulate background color
-            mask &= ~(1 << i); // mark shaded sample
+        } else {
+            // no triangle referenced
+            accum += vec3(0.0);   // accumulate background color
+            mask &= ~(1 << i);    // mark shaded sample
         }
     }
     return accum / float(numSamples);
@@ -150,7 +152,7 @@ vec3 shadeMultisample() {
 
 void main() {
     if (numSamples > 0) {
-        FragColor = vec4(shadeMultisample(), 1.0); 
+        FragColor = vec4(shadeMultisample(), 1.0);
     } else {
         int index
           = texelFetch(TriangleIndexSampler, ivec2(gl_FragCoord.xy), 0).r;
