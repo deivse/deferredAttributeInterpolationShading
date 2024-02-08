@@ -14,7 +14,6 @@ DeferredAttributeInterpolationShading::
   ~DeferredAttributeInterpolationShading() {
     glDeleteFramebuffers(1, &FBO);
     glDeleteVertexArrays(1, &emptyVAO);
-    glDeleteBuffers(1, &settingsUniformBuffer);
     glDeleteBuffers(1, &triangleSSBO);
     glDeleteBuffers(1, &derivativeSSBO);
     glDeleteBuffers(1, &atomicCounterBuffer);
@@ -78,18 +77,11 @@ void DeferredAttributeInterpolationShading::initialize() {
                                      glm::value_ptr(clearValue));
 
           // update settings buffer
-          auto* settings = reinterpret_cast<UniformSettingsBuffer*>(
-            glMapNamedBuffer(settingsUniformBuffer, GL_WRITE_ONLY));
-          settings->bitwiseModHashSize = hashTableSize - 1;
-          settings->numTrianglesPerSphere
-            = Scene::get().spheres.trianglesPerSphere;
-          if (glUnmapNamedBuffer(settingsUniformBuffer) == GL_FALSE) {
-              logWarning("Settings uniform buffer data store contents have "
-                         "become corrupt during the "
-                         "time the data store was mapped, reinitializing.");
-              createSettingsUniformBuffer(UniformSettingsBuffer{
-                hashTableSize - 1, static_cast<uint32_t>(
-                                     Scene::get().spheres.trianglesPerSphere)});
+          {
+              auto settings = uniformBuffer.mapForWrite();
+              settings->bitwiseModHashSize = hashTableSize - 1;
+              settings->numTrianglesPerSphere
+                = Scene::get().spheres.trianglesPerSphere;
           }
 
           Scene::get().update();
@@ -195,17 +187,11 @@ void DeferredAttributeInterpolationShading::createAtomicCounterBuffer() {
 }
 
 void DeferredAttributeInterpolationShading::createSettingsUniformBuffer(
-  std::optional<UniformSettingsBuffer> initialData) {
+  std::optional<UniformBufferData> initialData) {
     logDebug("Creating settings uniform buffer...");
 
-    glDeleteBuffers(1, &settingsUniformBuffer);
-    glCreateBuffers(1, &settingsUniformBuffer);
-    glNamedBufferStorage(settingsUniformBuffer, sizeof(UniformSettingsBuffer),
-                         initialData ? &initialData : nullptr,
-                         GL_CLIENT_STORAGE_BIT | GL_MAP_WRITE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER,
-                     layout::location(layout::UniformBuffers::DAIS_Settings),
-                     settingsUniformBuffer);
+    uniformBuffer.initialize(layout::UniformBuffers::DAIS_Uniforms,
+                             initialData);
 }
 
 // NOLINTNEXTLINE(readability-make-member-function-const)

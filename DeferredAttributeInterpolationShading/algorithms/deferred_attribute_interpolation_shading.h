@@ -1,6 +1,7 @@
 #ifndef DEFERREDATTRIBUTEINTERPOLATIONSHADING_ALGORITHMS_DEFERRED_ATTRIBUTE_INTERPOLATION_SHADING
 #define DEFERREDATTRIBUTEINTERPOLATIONSHADING_ALGORITHMS_DEFERRED_ATTRIBUTE_INTERPOLATION_SHADING
 
+#include "algorithms/uniform_buffer.h"
 #include <algorithm.h>
 
 #include <glbinding/gl/gl.h>
@@ -20,13 +21,13 @@ class DeferredAttributeInterpolationShading
     constexpr static size_t TRIANGLE_SIZE = 72;
     constexpr static size_t MAX_TRIANGLE_COUNT = 1036800;
 
-    struct UniformSettingsBuffer
+    struct UniformBufferData
     {
         /// @brief triangleID & bitwiseModHashSize == triangleID % hashTableSize
         int32_t bitwiseModHashSize;
         uint32_t numTrianglesPerSphere;
     };
-    GLuint settingsUniformBuffer = 0;
+    UniformBufferObject<UniformBufferData> uniformBuffer;
     GLuint triangleSSBO = 0, derivativeSSBO = 0;
     GLuint atomicCounterBuffer = 0;
 
@@ -39,8 +40,9 @@ class DeferredAttributeInterpolationShading
     std::vector<RenderPass> renderPasses;
 
     void createAtomicCounterBuffer();
-    void createSettingsUniformBuffer(
-      std::optional<UniformSettingsBuffer> initialData = std::nullopt);
+    void
+      createSettingsUniformBuffer(std::optional<UniformBufferData> initialData
+                                  = std::nullopt);
     void createHashTableResources();
     void createSSBO(GLuint& ssbo, layout::ShaderStorageBuffers binding);
     void createFBO(const glm::ivec2& resolution);
