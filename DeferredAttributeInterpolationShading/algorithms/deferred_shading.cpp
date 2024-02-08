@@ -90,7 +90,7 @@ void DeferredShading::initialize() {
       },
       "02_ds_deferred");
     renderPasses.emplace_back(
-      "Restore Z-Buffer",
+      "Supersample Resolve",
       [&]() -> void {
           Variables::WindowSize = WindowResolution;
           glViewport(0, 0, Variables::WindowSize.x, Variables::WindowSize.y);
@@ -101,6 +101,18 @@ void DeferredShading::initialize() {
           glBlitFramebuffer(0, 0, MSAAResolution.x, MSAAResolution.y, 0, 0,
                             Variables::WindowSize.x, Variables::WindowSize.y,
                             GL_COLOR_BUFFER_BIT, GL_LINEAR);
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      },
+      nullptr);
+
+    renderPasses.emplace_back(
+      "Restore Depth",
+      [&]() -> void {
+          glBindFramebuffer(GL_READ_FRAMEBUFFER, gBufferFBO);
+          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+          glBlitFramebuffer(0, 0, MSAAResolution.x, MSAAResolution.y, 0, 0,
+                            Variables::WindowSize.x, Variables::WindowSize.y,
+                            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
       },
       &restoreDepth);
