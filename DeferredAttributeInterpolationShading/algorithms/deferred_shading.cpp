@@ -24,12 +24,28 @@ void DeferredShading::initialize() {
     DECLARE_SHADER_ONLY_OPTION(discardPixelsWithoutGeometry, true);
 
     logDebug("Initializing");
+
+    logDebug("Creating uniform buffer...");
+    uniformBuffer.initialize(layout::UniformBuffers::DS_Uniforms, std::nullopt);
+
     createGBuffer(Variables::WindowSize);
 
     glLineWidth(2.0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     glGenVertexArrays(1, &emptyVAO);
+
+    renderPasses.emplace_back(
+      "Reset uniform buffer.",
+      [&]() -> void {
+          auto uniforms = uniformBuffer.mapForWrite();
+          uniforms->cameraPosition = Variables::Transform.ModelViewInverse
+                                     * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+          uniforms->MVPMatrix = Variables::Transform.ModelViewProjection;
+          // Warning: the buffer will be unmapped once `uniforms` goes out of
+          // scope
+      },
+      nullptr);
 
     // Add rendering passes
     renderPasses.emplace_back(
@@ -50,11 +66,6 @@ void DeferredShading::initialize() {
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
           glClear(GL_COLOR_BUFFER_BIT);
           glDisable(GL_DEPTH_TEST);
-
-          const auto cameraPosition = Variables::Transform.ModelViewInverse
-                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-          glUniform3fv(layout::location(layout::Uniforms::CameraPosition), 1,
-                       &cameraPosition.x);
 
           for (auto attachment : colorAttachments) {
               glBindTextureUnit(

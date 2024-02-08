@@ -15,7 +15,14 @@ layout(std430, binding = 2) buffer LightBuffer {
     Light lights[]; // size = 32, offset = 16, alignment = 16
 };
 
-layout(location = 0) uniform vec3 u_CameraPosition;
+layout(std140, binding = 2) uniform DSUniforms {
+    vec4 cameraPosition;       // size = 16, offset = 0, alignment = 16
+    mat4 MVPMatrix;            // size = 64, offset = 16, alignment = 16
+    
+    // ---- std140:
+    // size = 80, alignment = 16
+    // -------------------------
+};
 
 layout(binding = 0) uniform sampler2D ColorSampler;
 layout(binding = 1) uniform sampler2D NormalSampler;
@@ -44,7 +51,7 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     vec3 lightContribution = color.rgb * diffSpecColor.rgb * NdotL;
 
     // Calculate specular color component
-    vec3 viewDir = normalize(u_CameraPosition - vertex);
+    vec3 viewDir = normalize(cameraPosition.xyz - vertex);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float NdotH = pow(max(dot(normal, halfwayDir), 0.0), 5.0);
     // Multiply by NdotL to

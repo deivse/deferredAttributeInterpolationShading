@@ -23,9 +23,9 @@ class DeferredAttributeInterpolationShading
 
     struct UniformBufferData : public CommonUniformBufferData
     {
-        /// @brief triangleID & bitwiseModHashSize == triangleID % hashTableSize
         glm::mat4x4 MVPInverse;
         glm::vec4 viewport;
+        /// @brief triangleID & bitwiseModHashSize == triangleID % hashTableSize
         GLint bitwiseModHashSize;
         GLuint numTrianglesPerSphere;
         GLfloat projectionMatrix_32;

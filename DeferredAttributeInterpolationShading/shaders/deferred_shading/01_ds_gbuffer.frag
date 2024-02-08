@@ -7,7 +7,6 @@ layout(location = 0) out vec4 SphereColor;
 layout(location = 1) out vec4 VertexNormal;
 layout(location = 2) out vec4 VertexPosition;
 
-layout(location = 1) uniform uint NumLights;
 layout(binding = 3) uniform sampler2D AlbedoSampler;
 
 in Vertex {

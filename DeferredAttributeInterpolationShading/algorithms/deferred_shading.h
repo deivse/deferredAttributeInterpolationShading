@@ -1,6 +1,7 @@
 #ifndef DEFERREDATTRIBUTEINTERPOLATIONSHADING_ALGORITHMS_DEFERRED_SHADING
 #define DEFERREDATTRIBUTEINTERPOLATIONSHADING_ALGORITHMS_DEFERRED_SHADING
 
+#include "algorithms/uniform_buffer.h"
 #include <algorithm.h>
 
 #include <glbinding/gl/gl.h>
@@ -24,6 +25,8 @@ class DeferredShading : public Algorithm<DeferredShading>
       GL_RGBA8, GL_RGBA32F, GL_RGBA32F};
     std::array<GLuint, colorAttachments.size()> colorTextures{};
     GLuint depthStencilTex{};
+
+    UniformBufferObject<CommonUniformBufferData> uniformBuffer;
 
     GLuint getTextureForAttachment(GLenum colorAttachment) {
         return colorTextures[static_cast<GLuint>(colorAttachment)
