@@ -139,7 +139,6 @@ vec3 shadeMultisample(vec2 ndcPosXY) {
             mask &= ~sample_mask; // mark shaded samples
         } else {
             // no triangle referenced
-            accum += vec3(0.0); // accumulate background color
             mask &= ~(1 << i);  // mark shaded sample
         }
     }

@@ -119,7 +119,6 @@ void shadeMultisampleCoverageMask(ivec2 pixel) {
                      * shadeSample(pixel, position.xyz, normal, diffSpecColor);
             mask &= ~sampleMask; // mark shaded samples
         } else {
-            accum += vec3(0.0); // accumulate background color
             mask &= ~(1 << i);  // mark shaded sample
         }
     }
