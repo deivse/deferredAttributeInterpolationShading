@@ -64,8 +64,8 @@ void DeferredShading::initialize() {
     renderPasses.emplace_back(
       "Deferred Shading",
       [this]() {
-          // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-          // glClear(GL_COLOR_BUFFER_BIT);
+          glBindFramebuffer(GL_FRAMEBUFFER, 0);
+          glClear(GL_COLOR_BUFFER_BIT);
           glDisable(GL_DEPTH_TEST);
 
           glBindVertexArray(emptyVAO);
@@ -74,18 +74,6 @@ void DeferredShading::initialize() {
           glEnable(GL_DEPTH_TEST);
       },
       "02_ds_deferred");
-    renderPasses.emplace_back(
-      "Supersample Resolve",
-      [&]() -> void {
-          glBindFramebuffer(GL_READ_FRAMEBUFFER, gBufferFBO);
-          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-          glBlitFramebuffer(0, 0, Variables::WindowSize.x,
-                            Variables::WindowSize.y, 0, 0,
-                            Variables::WindowSize.x, Variables::WindowSize.y,
-                            GL_COLOR_BUFFER_BIT, GL_LINEAR);
-          glBindFramebuffer(GL_FRAMEBUFFER, 0);
-      },
-      nullptr);
 
     renderPasses.emplace_back(
       "Restore Depth",
@@ -102,6 +90,8 @@ void DeferredShading::initialize() {
 }
 
 void DeferredShading::showGBufferTextures() {
+    if (MSAASampleCount > 0) return;
+
     using Variables::WindowSize;
     const auto numColorTextures = static_cast<int>(colorTextures.size());
     const auto numTextures = numColorTextures + 1;
