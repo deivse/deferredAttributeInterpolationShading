@@ -28,6 +28,9 @@ DeferredAttributeInterpolationShading::
 
 void DeferredAttributeInterpolationShading::initialize() {
     DECLARE_OPTION(restoreDepth, true);
+    DECLARE_OPTION(resetWriteIndexWithBufferClear, true);
+    DECLARE_OPTION(resetHashTableWithBufferClear, true);
+    DECLARE_OPTION(invalidateDataBeforeClear, true);
 
     logDebug("Initializing");
     createHashTableResources();
@@ -46,16 +49,31 @@ void DeferredAttributeInterpolationShading::initialize() {
     renderPasses.emplace_back(
       "Reset buffers",
       [&]() -> void {
-          resetHashTable();
-          auto* address = static_cast<GLuint*>(
-            glMapNamedBuffer(atomicCounterBuffer, GL_WRITE_ONLY));
-          *address = 0;
-          if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
-              logWarning(
-                "Atomic counter buffer data store contents have become "
-                "corrupt during the time the data store was mapped, "
-                "reinitializing.");
-              createAtomicCounterBuffer();
+          if (resetHashTableWithBufferClear) {
+              if (invalidateDataBeforeClear)
+                  glInvalidateTexImage(cacheTexture, 0);
+              constexpr auto clearValue = glm::uvec4(-1);
+              glClearTexImage(cacheTexture, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT,
+                              &clearValue.x);
+          } else {
+              resetHashTable();
+          }
+          if (resetWriteIndexWithBufferClear) {
+              if (invalidateDataBeforeClear)
+                  glInvalidateBufferData(atomicCounterBuffer);
+              glClearNamedBufferData(atomicCounterBuffer, GL_R32UI,
+                                     GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+          } else {
+              auto* address = static_cast<GLuint*>(
+                glMapNamedBuffer(atomicCounterBuffer, GL_WRITE_ONLY));
+              *address = 0;
+              if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
+                  logWarning(
+                    "Atomic counter buffer data store contents have become "
+                    "corrupt during the time the data store was mapped, "
+                    "reinitializing.");
+                  createAtomicCounterBuffer();
+              }
           }
 
           const auto cameraPosition = Variables::Transform.ModelViewInverse
@@ -129,16 +147,9 @@ void DeferredAttributeInterpolationShading::initialize() {
           glDisable(GL_DEPTH_TEST);
           glClear(GL_COLOR_BUFFER_BIT);
 
-          // Always bind both textures to avoid warnings, one will be empty.
-          glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
-                              gl::GLenum::GL_COLOR_ATTACHMENT0)),
-                            triangleAddressFBOTexture);
-          glBindTextureUnit(
-            layout::location(layout::TextureUnits::DAIS_TriangleAddressMS),
-            triangleAddressFBOTextureMS);
-
           glBindVertexArray(emptyVAO);
           glDrawArrays(GL_TRIANGLES, 0, 3);
+
           glEnable(GL_DEPTH_TEST);
       },
       "04_dais_shading_pass");
@@ -185,6 +196,15 @@ void DeferredAttributeInterpolationShading::createFBO(
                                                   : triangleAddressFBOTexture,
                               0);
     glNamedFramebufferTexture(FBO, GL_DEPTH_ATTACHMENT, FBOdepthTexture, 0);
+
+    // Always bind both textures to avoid warnings, one will have resolution
+    // 1x1.
+    glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
+                        gl::GLenum::GL_COLOR_ATTACHMENT0)),
+                      triangleAddressFBOTexture);
+    glBindTextureUnit(
+      layout::location(layout::TextureUnits::DAIS_TriangleAddressMS),
+      triangleAddressFBOTextureMS);
 
     assert(glGetError() == GL_NO_ERROR);
     assert(glCheckNamedFramebufferStatus(FBO, GL_FRAMEBUFFER)

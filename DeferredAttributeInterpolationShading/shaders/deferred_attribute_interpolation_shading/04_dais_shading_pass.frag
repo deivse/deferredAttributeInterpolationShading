@@ -90,17 +90,14 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     return lightContribution * attenuation;
 }
 
-vec3 shadePixel(int index) {
-    vec2 viewportSize = Viewport.zw - Viewport.xy;
-    vec4 ndcPos;
-    ndcPos.xy = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2.0 - 1.0;
+vec3 shadePixel(int index, vec2 ndcPosXY) {
+    vec4 ndcPos = vec4(ndcPosXY, 0, 1);
 
     float oneOverW
       = (derivatives[index].oneOverW_fixed + ndcPos.x * derivatives[index].dW_dX
          + ndcPos.y * derivatives[index].dW_dY);
 
     ndcPos.z = projectionMatrix_32 * oneOverW - projectionMatrix_22;
-    ndcPos.w = 1;
 
     vec4 clipPos = ndcPos / oneOverW;
     vec4 worldPos = MVPMatrixInv * clipPos;
@@ -118,18 +115,16 @@ vec3 shadePixel(int index) {
     vec4 diffSpecColor = texture(AlbedoSampler, uv);
     vec3 retval = vec3(0);
     for (uint i = 0; i < numLights; ++i) {
-        vec3 lightContribution
-          = calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
-        retval += lightContribution;
+        retval += calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
     }
     return retval;
 }
 
-// TODO: image brighter at 8X MSAA??
-vec3 shadeMultisample() {
+vec3 shadeMultisample(vec2 ndcPosXY) {
     // mask stores which samples need to be shaded
     uint mask = (1 << numSamples) - 1;
     vec3 accum = vec3(0.0);
+
     while (mask > 0) {
         int i = findLSB(mask); // next sample index to shade
         uint vs
@@ -139,7 +134,7 @@ vec3 shadeMultisample() {
             // contains triangle reference
             uint sample_mask = vs >> 24;  // extract coverage
             int t = int(vs) & 0x00ffffff; // extract triangle idx
-            accum += bitCount(sample_mask) * shadePixel(t);
+            accum += bitCount(sample_mask) * shadePixel(t, ndcPosXY);
             mask &= ~sample_mask; // mark shaded samples
         } else {
             // no triangle referenced
@@ -151,12 +146,16 @@ vec3 shadeMultisample() {
 }
 
 void main() {
+    // precalculate ndcPosXY that will be same for all shaded samples
+    vec2 viewportSize = Viewport.zw - Viewport.xy;
+    vec2 ndcPosXY = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2 - 1;
+
     if (numSamples > 0) {
-        FragColor = vec4(shadeMultisample(), 1.0);
+        FragColor = vec4(shadeMultisample(ndcPosXY), 1.0);
     } else {
         int index
           = texelFetch(TriangleIndexSampler, ivec2(gl_FragCoord.xy), 0).r;
         if (index == -1) discard;
-        FragColor = vec4(shadePixel(index & 0x00ffffff), 1.0);
+        FragColor = vec4(shadePixel(index & 0x00ffffff, ndcPosXY), 1.0);
     }
 }

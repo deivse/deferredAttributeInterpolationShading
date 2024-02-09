@@ -31,12 +31,11 @@ vec3 oct_to_float32x3(vec2 e) {
 
 void uncompressTriangleAttributes(in Triangle triangle, out vec3 normals[3],
                                   out vec2 UVs[3]) {
-    normals[0] = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[0]));
-    normals[1] = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[1]));
-    normals[2] = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[2]));
-    UVs[0] = unpackSnorm2x16(triangle.UVsUnorm[0]);
-    UVs[1] = unpackSnorm2x16(triangle.UVsUnorm[1]);
-    UVs[2] = unpackSnorm2x16(triangle.UVsUnorm[2]);
+    for (int i = 0; i < 3; i++) {
+        normals[i]
+          = oct_to_float32x3(unpackSnorm2x16(triangle.normalsSnormOct[i]));
+        UVs[i] = unpackSnorm2x16(triangle.UVsUnorm[i]);
+    }
 }
 
 struct TriangleDerivatives
