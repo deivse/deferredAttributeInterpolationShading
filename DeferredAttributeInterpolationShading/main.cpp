@@ -49,7 +49,7 @@ void resetAlgorithm() {
 }
 
 int showGUI() {
-    int menuHeight = 305;
+    int menuHeight = 355;
     const int oneInt = 1;
     const int itemWidth = 140 * IMGUI_RESIZE_FACTOR;
 
