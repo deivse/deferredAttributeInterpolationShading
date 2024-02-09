@@ -19,9 +19,9 @@ layout(std140, binding = 2) uniform DSUniforms {
 };
 
 out Vertex {
-    vec3 position;
-    smooth vec3 normal;
-    vec2 uv;
+    sample vec3 position;
+    sample smooth vec3 normal;
+    sample vec2 uv;
 };
 
 void main(void) {

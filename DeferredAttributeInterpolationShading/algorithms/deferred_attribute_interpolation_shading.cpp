@@ -31,6 +31,7 @@ void DeferredAttributeInterpolationShading::initialize() {
     DECLARE_OPTION(resetWriteIndexWithBufferClear, true);
     DECLARE_OPTION(resetHashTableWithBufferClear, true);
     DECLARE_OPTION(invalidateDataBeforeClear, true);
+    DECLARE_SHADER_ONLY_OPTION(AggressiveMultisampleDiscard, false);
 
     logDebug("Initializing");
     createHashTableResources();
@@ -199,12 +200,12 @@ void DeferredAttributeInterpolationShading::createFBO(
 
     // Always bind both textures to avoid warnings, one will have resolution
     // 1x1.
-    glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment(
+    glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment<false>(
                         gl::GLenum::GL_COLOR_ATTACHMENT0)),
                       triangleAddressFBOTexture);
-    glBindTextureUnit(
-      layout::location(layout::TextureUnits::DAIS_TriangleAddressMS),
-      triangleAddressFBOTextureMS);
+    glBindTextureUnit(layout::location(layout::texSamplerForFBOAttachment<true>(
+                        gl::GLenum::GL_COLOR_ATTACHMENT0)),
+                      triangleAddressFBOTextureMS);
 
     assert(glGetError() == GL_NO_ERROR);
     assert(glCheckNamedFramebufferStatus(FBO, GL_FRAMEBUFFER)

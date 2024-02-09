@@ -28,10 +28,6 @@ void DeferredShading::initialize() {
     logDebug("Creating uniform buffer...");
     uniformBuffer.initialize(layout::UniformBuffers::DS_Uniforms, std::nullopt);
 
-    WindowResolution = Variables::WindowSize;
-    MSAAResolution
-      = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
-        * Variables::WindowSize;
     createGBuffer(Variables::WindowSize);
 
     glLineWidth(2.0);
@@ -42,15 +38,11 @@ void DeferredShading::initialize() {
     renderPasses.emplace_back(
       "Reset uniform buffer.",
       [&]() -> void {
-          glViewport(0, 0, MSAAResolution.x, MSAAResolution.y);
-
-          Variables::WindowSize = MSAAResolution;
-          Variables::Transform.update();
-
           auto uniforms = uniformBuffer.mapForWrite();
           uniforms->cameraPosition = Variables::Transform.ModelViewInverse
                                      * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
           uniforms->MVPMatrix = Variables::Transform.ModelViewProjection;
+          uniforms->numSamples = MSAASampleCount;
           // Warning: the buffer will be unmapped once `uniforms` goes out of
           // scope
       },
@@ -76,13 +68,6 @@ void DeferredShading::initialize() {
           // glClear(GL_COLOR_BUFFER_BIT);
           glDisable(GL_DEPTH_TEST);
 
-          for (auto attachment : colorAttachments) {
-              glBindTextureUnit(
-                layout::location(
-                  layout::texSamplerForFBOAttachment(attachment)),
-                getTextureForAttachment(attachment));
-          }
-
           glBindVertexArray(emptyVAO);
           glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -92,13 +77,10 @@ void DeferredShading::initialize() {
     renderPasses.emplace_back(
       "Supersample Resolve",
       [&]() -> void {
-          Variables::WindowSize = WindowResolution;
-          glViewport(0, 0, Variables::WindowSize.x, Variables::WindowSize.y);
-          Variables::Transform.update();
-
           glBindFramebuffer(GL_READ_FRAMEBUFFER, gBufferFBO);
           glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-          glBlitFramebuffer(0, 0, MSAAResolution.x, MSAAResolution.y, 0, 0,
+          glBlitFramebuffer(0, 0, Variables::WindowSize.x,
+                            Variables::WindowSize.y, 0, 0,
                             Variables::WindowSize.x, Variables::WindowSize.y,
                             GL_COLOR_BUFFER_BIT, GL_LINEAR);
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -110,7 +92,8 @@ void DeferredShading::initialize() {
       [&]() -> void {
           glBindFramebuffer(GL_READ_FRAMEBUFFER, gBufferFBO);
           glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-          glBlitFramebuffer(0, 0, MSAAResolution.x, MSAAResolution.y, 0, 0,
+          glBlitFramebuffer(0, 0, Variables::WindowSize.x,
+                            Variables::WindowSize.y, 0, 0,
                             Variables::WindowSize.x, Variables::WindowSize.y,
                             GL_DEPTH_BUFFER_BIT, GL_NEAREST);
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -143,22 +126,35 @@ void DeferredShading::showGBufferTextures() {
 
 void DeferredShading::setMSAASampleCount(uint8_t numSamples) {
     MSAASampleCount = numSamples;
-    MSAAResolution
-      = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
-        * WindowResolution;
     createGBuffer(Variables::WindowSize);
+}
+
+template<bool MS>
+GLuint DeferredShading::getTextureForAttachment(GLenum colorAttachment) {
+    if constexpr (MS) {
+        return colorTexturesMS[static_cast<GLuint>(colorAttachment)
+                               - static_cast<GLuint>(GL_COLOR_ATTACHMENT0)];
+    } else {
+        return colorTextures[static_cast<GLuint>(colorAttachment)
+                             - static_cast<GLuint>(GL_COLOR_ATTACHMENT0)];
+    }
 }
 
 void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
     logDebug("Creating GBuffer ...");
 
     Tools::Texture::Create2D(depthStencilTex, gl::GLenum::GL_DEPTH24_STENCIL8,
-                             MSAAResolution);
+                             resolution, MSAASampleCount);
 
     for (uint8_t i = 0; i < static_cast<uint8_t>(colorAttachments.size());
          i++) {
         Tools::Texture::Create2D(colorTextures[i], colorTextureFormats[i],
-                                 MSAAResolution, 0);
+                                 MSAASampleCount ? glm::ivec2(1, 1)
+                                                 : resolution);
+        Tools::Texture::Create2D(colorTexturesMS[i], colorTextureFormats[i],
+                                 MSAASampleCount ? resolution
+                                                 : glm::ivec2{1, 1},
+                                 MSAASampleCount > 0 ? MSAASampleCount : 1);
     }
 
     // Create a framebuffer object ...
@@ -169,8 +165,9 @@ void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
 
     // and attach color and depth textures
     for (size_t i = 0; i < colorAttachments.size(); i++) {
-        glNamedFramebufferTexture(gBufferFBO, colorAttachments[i],
-                                  colorTextures[i], 0);
+        glNamedFramebufferTexture(
+          gBufferFBO, colorAttachments[i],
+          MSAASampleCount > 0 ? colorTexturesMS[i] : colorTextures[i], 0);
     }
     glNamedFramebufferTexture(
       gBufferFBO, gl::GLenum::GL_DEPTH_STENCIL_ATTACHMENT, depthStencilTex, 0);
@@ -178,6 +175,17 @@ void DeferredShading::createGBuffer(const glm::ivec2& resolution) {
     assert(glGetError() == GL_NO_ERROR);
     assert(glCheckNamedFramebufferStatus(gBufferFBO, GL_FRAMEBUFFER)
            == GL_FRAMEBUFFER_COMPLETE);
+
+    for (auto attachment : colorAttachments) {
+        glBindTextureUnit(
+          layout::location(
+            layout::texSamplerForFBOAttachment<false>(attachment)),
+          getTextureForAttachment<false>(attachment));
+        glBindTextureUnit(
+          layout::location(
+            layout::texSamplerForFBOAttachment<true>(attachment)),
+          getTextureForAttachment<true>(attachment));
+    }
 }
 
 } // namespace Algorithms

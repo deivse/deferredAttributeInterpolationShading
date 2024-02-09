@@ -33,7 +33,9 @@ enum class TextureUnits : GLuint
     DS_Normal,
     DS_Vertex,
     Albedo,
-    DAIS_TriangleAddressMS
+    DS_Color_DAIS_TriangleAddressMS,
+    DS_NormalMS,
+    DS_VertexMS,
 };
 
 enum class ImageUnits : GLuint
@@ -42,16 +44,20 @@ enum class ImageUnits : GLuint
     DAIS_Locks,
 };
 
+template<bool MS>
 constexpr TextureUnits texSamplerForFBOAttachment(GLenum colorAttachment) {
     if (colorAttachment < gl::GLenum::GL_COLOR_ATTACHMENT0
         || colorAttachment > gl::GLenum::GL_COLOR_ATTACHMENT31)
         throw;
+    
     if (static_cast<GLuint>(TextureUnits::DS_Color_DAIS_TriangleAddress) != 0)
         throw;
 
     return static_cast<TextureUnits>(
       static_cast<GLuint>(colorAttachment)
-      - static_cast<GLuint>(gl::GLenum::GL_COLOR_ATTACHMENT0));
+      - static_cast<GLuint>(gl::GLenum::GL_COLOR_ATTACHMENT0)
+      + (MS ? static_cast<GLuint>(TextureUnits::DS_Color_DAIS_TriangleAddressMS)
+            : 0));
 }
 
 template<typename EnumT>

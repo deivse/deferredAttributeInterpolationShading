@@ -29,6 +29,10 @@ layout(binding = 0) uniform sampler2D ColorSampler;
 layout(binding = 1) uniform sampler2D NormalSampler;
 layout(binding = 2) uniform sampler2D VertexSampler;
 
+layout(binding = 4) uniform sampler2DMS ColorSamplerMS;
+layout(binding = 5) uniform sampler2DMS NormalSamplerMS;
+layout(binding = 6) uniform sampler2DMS VertexSamplerMS;
+
 // Simple phong lighting
 vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
                                 in vec3 normal, in vec4 diffSpecColor) {
@@ -63,23 +67,49 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
 
 void main(void) {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
-    vec3 normal = texelFetch(NormalSampler, pixel, 0).xyz;
+    vec3 normal;
     // (diffuse.rgb, specular)
-    vec4 diffSpecColor = texelFetch(ColorSampler, pixel, 0);
-    vec4 position = texelFetch(VertexSampler, pixel, 0);
+    vec4 diffSpecColor;
+    vec4 position;
+
+    if (MSAASamples > 1) {
+        FragColor = vec4(vec3(0.0), 1.0);
+        for (int i = 0; i < int(MSAASamples); ++i) {
+            position = texelFetch(VertexSamplerMS, pixel, i);
 
 #ifdef discardPixelsWithoutGeometry
-    // OPTIMIZATION: Don't calculate lighting for pixels that don't contain
-    // any geometry
-    if (position.w == 0) {
-        FragColor = vec4(vec3(0.0), 1.0);
-    }
+            if (position.w == 0) {
+                continue;
+            }
 #endif
+            normal = texelFetch(NormalSamplerMS, pixel, i).xyz;
+            diffSpecColor = texelFetch(ColorSamplerMS, pixel, i);
 
-    FragColor = vec4(vec3(0.0), 1.0);
-    for (uint i = 0; i < numLights; ++i) {
-        vec3 lightContribution
-          = calculateLightContribution(i, position.xyz, normal, diffSpecColor);
-        FragColor.rgb += lightContribution;
+            for (uint i = 0; i < numLights; ++i) {
+                vec3 lightContribution = calculateLightContribution(
+                  i, position.xyz, normal, diffSpecColor);
+                FragColor.rgb += lightContribution;
+            }
+        }
+        FragColor.rgb /= MSAASamples;
+    } else {
+        position = texelFetch(VertexSampler, pixel, 0);
+
+#ifdef discardPixelsWithoutGeometry
+        // OPTIMIZATION: Don't calculate lighting for pixels that don't contain
+        // any geometry
+        if (position.w == 0) {
+            FragColor = vec4(vec3(0.0), 1.0);
+        }
+#endif
+        normal = texelFetch(NormalSampler, pixel, 0).xyz;
+        diffSpecColor = texelFetch(ColorSampler, pixel, 0);
+
+        FragColor = vec4(vec3(0.0), 1.0);
+        for (uint i = 0; i < numLights; ++i) {
+            vec3 lightContribution = calculateLightContribution(
+              i, position.xyz, normal, diffSpecColor);
+            FragColor.rgb += lightContribution;
+        }
     }
 }

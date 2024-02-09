@@ -10,9 +10,9 @@ layout(location = 2) out vec4 VertexPosition;
 layout(binding = 3) uniform sampler2D AlbedoSampler;
 
 in Vertex {
-    vec3 position;
-    smooth vec3 normal;
-    vec2 uv;
+    sample vec3 position;
+    sample smooth vec3 normal;
+    sample vec2 uv;
 };
 
 void main(void) {

@@ -115,7 +115,8 @@ vec3 shadePixel(int index, vec2 ndcPosXY) {
     vec4 diffSpecColor = texture(AlbedoSampler, uv);
     vec3 retval = vec3(0);
     for (uint i = 0; i < numLights; ++i) {
-        retval += calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
+        retval
+          += calculateLightContribution(i, worldPos.xyz, normal, diffSpecColor);
     }
     return retval;
 }
@@ -138,8 +139,8 @@ vec3 shadeMultisample(vec2 ndcPosXY) {
             mask &= ~sample_mask; // mark shaded samples
         } else {
             // no triangle referenced
-            accum += vec3(0.0);   // accumulate background color
-            mask &= ~(1 << i);    // mark shaded sample
+            accum += vec3(0.0); // accumulate background color
+            mask &= ~(1 << i);  // mark shaded sample
         }
     }
     return accum / float(numSamples);
@@ -151,6 +152,11 @@ void main() {
     vec2 ndcPosXY = (gl_FragCoord.xy - Viewport.xy) / viewportSize * 2 - 1;
 
     if (numSamples > 0) {
+#ifdef AggressiveMultisampleDiscard
+        int index0
+          = texelFetch(TriangleIndexSampler, ivec2(gl_FragCoord.xy), 0).r;
+        if (index0 == -1) discard;
+#endif
         FragColor = vec4(shadeMultisample(ndcPosXY), 1.0);
     } else {
         int index

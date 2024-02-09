@@ -19,8 +19,6 @@ class DeferredShading : public Algorithm<DeferredShading>
     GLuint gBufferFBO = 0;
 
     uint8_t MSAASampleCount = 4;
-    glm::ivec2 WindowResolution = {0, 0};
-    glm::ivec2 MSAAResolution = {0, 0};
 
     // 0 = color, 1 = normal, 2 = position
     constexpr static std::array<GLenum, 3> colorAttachments{
@@ -28,14 +26,18 @@ class DeferredShading : public Algorithm<DeferredShading>
     std::array<GLenum, colorAttachments.size()> colorTextureFormats{
       GL_RGBA8, GL_RGBA32F, GL_RGBA32F};
     std::array<GLuint, colorAttachments.size()> colorTextures{};
+    std::array<GLuint, colorAttachments.size()> colorTexturesMS{};
     GLuint depthStencilTex{};
 
-    UniformBufferObject<CommonUniformBufferData> uniformBuffer;
+    struct UniformBufferData : public CommonUniformBufferData
+    {
+        GLuint numSamples;
+    };
+    UniformBufferObject<UniformBufferData> uniformBuffer;
 
-    GLuint getTextureForAttachment(GLenum colorAttachment) {
-        return colorTextures[static_cast<GLuint>(colorAttachment)
-                             - static_cast<GLuint>(GL_COLOR_ATTACHMENT0)];
-    }
+    template<bool MS>
+    GLuint getTextureForAttachment(GLenum colorAttachment);
+
     void createGBuffer(const glm::ivec2& resolution);
     void showGBufferTextures();
 
@@ -48,10 +50,6 @@ public:
     static size_t customGui() { return 0; }
 
     void windowResized(const glm::ivec2& resolution) {
-        WindowResolution = resolution;
-        MSAAResolution
-          = static_cast<int>(MSAASampleCount == 0 ? 1 : MSAASampleCount)
-            * WindowResolution;
         createGBuffer(resolution);
     }
     void initialize();
