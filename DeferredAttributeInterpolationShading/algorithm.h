@@ -219,12 +219,16 @@ public:
         }
 
         const int rowHeight = 9 * IMGUI_RESIZE_FACTOR;
-        const size_t height
+        size_t height
           = 160 + rowHeight * (3 * numRenderPasses + getOptions().size());
+
+
         ImGui::Begin(getName().c_str());
         ImGui::SetWindowPos(glm::vec2(position.x, position.y)
                               * IMGUI_RESIZE_FACTOR,
                             ImGuiCond_Once);
+
+        height += getDerived().customGui();
         // Add checkboxes for algorithm options
         ImGui::Text("OPTIONS");
         ImGui::Checkbox("show debug", &showDebug);

@@ -25,14 +25,6 @@ enum class ShaderStorageBuffers : GLuint
     Lights
 };
 
-enum class Uniforms : GLuint
-{
-    CameraPosition = 0,
-    NumLights,
-    MVPInverse
-    // TODO: use uniform buffer
-};
-
 enum class TextureUnits : GLuint
 {
     /// @warning keep all DS_* samplers corresponding to FBO layout at

@@ -3,7 +3,6 @@
 
 #include <spdlog/spdlog.h>
 
-using Uniforms = layout::Uniforms;
 using UniformBuffers = layout::UniformBuffers;
 
 void Scene::Lights::create(float maxDistanceFromWorldOrigin) {

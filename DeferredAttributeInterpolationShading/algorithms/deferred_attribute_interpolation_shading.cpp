@@ -2,6 +2,8 @@
 #include "option_declaration_macros.h"
 #include "scene.h"
 
+#include <array>
+
 #include <glm/vec2.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <common.h>
@@ -49,9 +51,10 @@ void DeferredAttributeInterpolationShading::initialize() {
             glMapNamedBuffer(atomicCounterBuffer, GL_WRITE_ONLY));
           *address = 0;
           if (glUnmapNamedBuffer(atomicCounterBuffer) == GL_FALSE) {
-              logWarning("Triangle SSBO data store contents have become "
-                         "corrupt during the time the data store was mapped, "
-                         "reinitializing.");
+              logWarning(
+                "Atomic counter buffer data store contents have become "
+                "corrupt during the time the data store was mapped, "
+                "reinitializing.");
               createAtomicCounterBuffer();
           }
 
@@ -247,5 +250,42 @@ void DeferredAttributeInterpolationShading::createSSBO(
     glNamedBufferStorage(ssbo, dataSize, nullptr, GL_CLIENT_STORAGE_BIT);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, layout::location(binding), ssbo);
+}
+
+size_t DeferredAttributeInterpolationShading::customGui() {
+    constexpr auto sizeToChoice = [](GLsizei size) -> int {
+        switch (size) {
+            case 256:
+                return 0;
+            case 512:
+                return 1;
+            case 1024:
+                return 2;
+            case 2048:
+                return 3;
+            case 4096:
+                return 4;
+            case 8192:
+                return 5;
+            case 16384:
+                return 6;
+            case 32768:
+                return 7;
+            default:
+                return 5;
+        }
+    };
+    static int choice = sizeToChoice(hashTableSize);
+    constexpr auto hashTableSizeLabels = std::array{
+      "256", "512", "1024", "2048", "4096", "8192", "16384", "32768"};
+    constexpr auto choiceToSize
+      = std::array{256, 512, 1024, 2048, 4096, 8192, 16384, 32768};
+
+    if (ImGui::Combo("Hash Table Size", &choice, hashTableSizeLabels.data(),
+                     hashTableSizeLabels.size())) {
+        hashTableSize = choiceToSize[choice];
+        createHashTableResources();
+    }
+    return 1;
 }
 } // namespace Algorithms

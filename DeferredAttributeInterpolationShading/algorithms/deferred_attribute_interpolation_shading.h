@@ -60,6 +60,9 @@ class DeferredAttributeInterpolationShading
     void resetHashTable();
 
 public:
+    /// @returns the number of additional GUI elements
+    size_t customGui();
+
     void setMSAASampleCount(uint8_t numSamples);
     uint8_t getMSAASampleCount() const { return MSAASampleCount; }
 

@@ -45,6 +45,8 @@ public:
     uint8_t getMSAASampleCount() const { return MSAASampleCount; }
     void setMSAASampleCount(uint8_t numSamples);
 
+    static size_t customGui() { return 0; }
+
     void windowResized(const glm::ivec2& resolution) {
         WindowResolution = resolution;
         MSAAResolution
