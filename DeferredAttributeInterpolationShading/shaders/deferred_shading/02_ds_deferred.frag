@@ -65,51 +65,98 @@ vec3 calculateLightContribution(in uint lightIdx, in vec3 vertex,
     return lightContribution * attenuation;
 }
 
-void main(void) {
-    ivec2 pixel = ivec2(gl_FragCoord.xy);
+vec3 shadeSample(ivec2 pixel, vec3 position, vec3 normal, vec4 diffSpecColor) {
+    vec3 retval = vec3(0.0);
+    for (uint i = 0; i < numLights; ++i) {
+        vec3 lightContribution
+          = calculateLightContribution(i, position, normal, diffSpecColor);
+        retval.rgb += lightContribution;
+    }
+    return retval;
+}
+
+void shadeMultisample(ivec2 pixel) {
     vec3 normal;
     // (diffuse.rgb, specular)
     vec4 diffSpecColor;
     vec4 position;
 
-    if (MSAASamples > 1) {
-        FragColor = vec4(vec3(0.0), 1.0);
-        for (int i = 0; i < int(MSAASamples); ++i) {
-            position = texelFetch(VertexSamplerMS, pixel, i);
-
-#ifdef discardPixelsWithoutGeometry
-            if (position.w == 0) {
-                continue;
-            }
-#endif
-            normal = texelFetch(NormalSamplerMS, pixel, i).xyz;
-            diffSpecColor = texelFetch(ColorSamplerMS, pixel, i);
-
-            for (uint i = 0; i < numLights; ++i) {
-                vec3 lightContribution = calculateLightContribution(
-                  i, position.xyz, normal, diffSpecColor);
-                FragColor.rgb += lightContribution;
-            }
-        }
-        FragColor.rgb /= MSAASamples;
-    } else {
-        position = texelFetch(VertexSampler, pixel, 0);
-
-#ifdef discardPixelsWithoutGeometry
-        // OPTIMIZATION: Don't calculate lighting for pixels that don't contain
-        // any geometry
+    vec3 accum = vec3(0.0);
+    for (int i = 0; i < int(MSAASamples); ++i) {
+        position = texelFetch(VertexSamplerMS, pixel, i);
         if (position.w == 0) {
-            FragColor = vec4(vec3(0.0), 1.0);
+            continue;
         }
-#endif
-        normal = texelFetch(NormalSampler, pixel, 0).xyz;
-        diffSpecColor = texelFetch(ColorSampler, pixel, 0);
 
-        FragColor = vec4(vec3(0.0), 1.0);
-        for (uint i = 0; i < numLights; ++i) {
-            vec3 lightContribution = calculateLightContribution(
-              i, position.xyz, normal, diffSpecColor);
-            FragColor.rgb += lightContribution;
+        normal = texelFetch(NormalSamplerMS, pixel, i).xyz;
+        diffSpecColor = texelFetch(ColorSamplerMS, pixel, i);
+
+        accum += shadeSample(pixel, position.xyz, normal, diffSpecColor);
+    }
+    FragColor = vec4(accum / MSAASamples, 1);
+}
+
+void shadeMultisampleCoverageMask(ivec2 pixel) {
+    vec3 normal;
+    // (diffuse.rgb, specular)
+    vec4 diffSpecColor;
+    vec4 position;
+
+    // mask stores which samples need to be shaded
+    uint mask = (1 << MSAASamples) - 1;
+    vec3 accum = vec3(0.0);
+
+    while (mask > 0) {
+        int i = findLSB(mask); // next sample index to shade
+        position = texelFetch(VertexSamplerMS, pixel, i);
+
+        normal = texelFetch(NormalSamplerMS, pixel, i).xyz;
+        diffSpecColor = texelFetch(ColorSamplerMS, pixel, i);
+
+        uint sampleMask = floatBitsToUint(position.w);
+        if (sampleMask != 0) {
+            accum += bitCount(sampleMask)
+                     * shadeSample(pixel, position.xyz, normal, diffSpecColor);
+            mask &= ~sampleMask; // mark shaded samples
+        } else {
+            accum += vec3(0.0); // accumulate background color
+            mask &= ~(1 << i);  // mark shaded sample
         }
+    }
+    FragColor = vec4(accum / MSAASamples, 1);
+}
+
+void shadeSingleSample(ivec2 pixel) {
+    vec3 normal;
+    // (diffuse.rgb, specular)
+    vec4 diffSpecColor;
+    vec4 position;
+    position = texelFetch(VertexSampler, pixel, 0);
+
+    // OPTIMIZATION: Don't calculate lighting for pixels that don't contain
+    // any geometry
+    if (position.w == 0) {
+        FragColor = vec4(vec3(0.0), 1.0);
+        return;
+    }
+
+    normal = texelFetch(NormalSampler, pixel, 0).xyz;
+    diffSpecColor = texelFetch(ColorSampler, pixel, 0);
+
+    FragColor
+      = vec4(shadeSample(pixel, position.xyz, normal, diffSpecColor), 1.0);
+}
+
+void main(void) {
+    ivec2 pixel = ivec2(gl_FragCoord.xy);
+
+    if (MSAASamples > 1) {
+#ifdef StoreCoverage
+        shadeMultisampleCoverageMask(pixel);
+#else
+        shadeMultisample(pixel);
+#endif
+    } else {
+        shadeSingleSample(pixel);
     }
 }

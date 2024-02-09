@@ -21,7 +21,8 @@ DeferredShading::~DeferredShading() {
 
 void DeferredShading::initialize() {
     DECLARE_OPTION(restoreDepth, true);
-    DECLARE_SHADER_ONLY_OPTION(discardPixelsWithoutGeometry, true);
+    // DECLARE_SHADER_ONLY_OPTION(discardPixelsWithoutGeometry, true);
+    DECLARE_OPTION(StoreCoverage, false);
 
     logDebug("Initializing");
 
@@ -48,16 +49,34 @@ void DeferredShading::initialize() {
       },
       nullptr);
 
+    renderPasses.emplace_back(
+      "Depth Pre-pass",
+      [&]() -> void {
+          glEnable(GL_DEPTH_TEST);
+          glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+          glClear(GL_DEPTH_BUFFER_BIT);
+          Scene::get().update();
+          Scene::get().spheres.render();
+      },
+      "00_ds_depth_pre", &StoreCoverage);
+
     // Add rendering passes
     renderPasses.emplace_back(
       "Fill G-Buffer",
       [&]() -> void {
-          glEnable(GL_DEPTH_TEST);
-          glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
-          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+          if (StoreCoverage) {
+              glDepthFunc(GL_EQUAL);
+          } else {
+              glEnable(GL_DEPTH_TEST);
+              glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+              glClear(GL_DEPTH_BUFFER_BIT);
+              Scene::get().update();
+          }
 
-          Scene::get().update();
+          glClear(GL_COLOR_BUFFER_BIT);
+
           Scene::get().spheres.render();
+          glDepthFunc(GL_LEQUAL);
       },
       "01_ds_gbuffer");
 
