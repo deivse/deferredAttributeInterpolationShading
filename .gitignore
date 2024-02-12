@@ -3,3 +3,4 @@ build/
 bin_x64/
 imgui.ini
 CMakeUserPresets.json
+pgr2_web/demo.mp4

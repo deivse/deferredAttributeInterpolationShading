@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+   <title>Ivan Desiatov - Semestrální projekt z předmětu B4M39PGR2</title>
+
+   <style>
+      body {
+         font: 15px Arial, sans-serif;
+         margin: 2em;
+      }
+
+      .project {
+         font-size: 2em;
+         margin-bottom: 0;
+      }
+
+      .author {
+         font-size: 1.2em;
+         margin-top: 0;
+         margin-left: 0.05em;
+         font-weight: 100;
+      }
+
+      h4 {
+         margin-top: 1em;
+         margin-bottom: 0.5em;
+         font-size: 1.7em;
+         font-weight: 50;
+      }
+
+      h5 {
+         font-size: 1.2em;
+         margin-top: 1em;
+
+      }
+
+      .screenshots {
+         display: flex;
+         flex-direction: row;
+         flex-wrap: wrap;
+      }
+
+      .screenshots img {
+         margin: 0.5em;
+         width: 48%;
+         min-width: 40em;
+      }
+   </style>
+</head>
+
+<body>
+   <div class="page">
+      <div class="left">
+         <div class="right">
+            <div class="main">
+               <h2 class="project">Deferred Attribute Interpolation Shading</h2>
+               <h3 class="author">Ivan Desiatov</h3>
+
+               <div class="screenshots" style="width: 100%;">
+                  <video style="width: 100%; max-width: 40em;" controls="" autoplay="true" loop="true" muted="true"
+                     playsinline="" preload="auto" poster="https://cent.felk.cvut.cz/courses/PGR2/img/fig1.png">
+                     <source src="demo.mp4" type="video/mp4">
+               </div>
+
+               <h4>Zadání</h4>
+               <p>
+                  Zadáním semestrální práce byla implementace techniky
+                  <a href="https://cent.felk.cvut.cz/courses/PGR2/seminars/seminarwork/dais.pdf">
+                     Deferred Atrribute Interpolation Shading</a> (dále DAIS) původně popsáne v článku
+                  <a href="https://cg.ivd.kit.edu/publications/2015/dais/DAIS.pdf">
+                     Deferred Attribute Interpolation for Memory-Efficient Deferred Shading
+                  </a> v roce 2015.
+                  DAIS je podobný odloženému stínování tím, že odděluje vyhodnocení viditelnosti geometrie
+                  od vyhodnocení osvětlení.
+
+                  V klasické technice odloženého stínování se pro každý pixel ukládají
+                  veškeré atributy geometrie potřebné k vyhodnocení osvětlení (pozice, normála, barva, atd.)
+                  do tzv. geometry bufferu. V následném průchodu se vypočítává osvětlení pouze
+                  pro viditelné fragmenty, přičemž se používají již vyhodnocené a uložené atributy geometrie.
+
+                  Na rozdíl od odloženého stínování, DAIS při prvním průchodu neukládá do bufferu viditelnosti přímo
+                  atributy geometrie,
+                  ale jenom ID trojúhelníku který odpovídá danému pixelu.
+                  Samotná data všech viditelných trojúhelníků jsou uloženy do dalšího bufferu
+                  a využívají se následně při výpočítání osvětlení.
+
+                  Algoritmus je popsán podrobněji v následující sekci věnované implementaci.
+               </p>
+               <h4>Popis implementace</h4>
+               <h5>Průchody algoritmu</h5>
+               <ol>
+                  <li><strong>Depth Prepass</strong>
+                     <p>
+                        Vykreslí se celá scéna pro předpočítání hodnot paměti hloubky.
+                     </p>
+                  </li>
+                  <li>
+                     <strong>Geometry Pass</strong>
+                     <p>V tomto průchodu se geometrie scény vyrenderuje znovu.
+                        Používá se <code>glDepthFunc(GL_EQUAL)</code> aby se FS spustili
+                        jenom pro viditelné trojúhelníky.
+                     </p>
+                     <p>
+                        Používají se 3 shadery:</p>
+                     <ol>
+                        <li>
+                           <strong>Vertex Shader</strong>
+                           <p>
+                              Provádí standardní transformace geometrie.
+                              Převede normály do úspornější
+                              reprezentace pomocí projekce na rozložený osmistěn,
+                              převede takhle komprimované normály a UV souřadnice
+                              do Snorm reprezentace.
+                           </p>
+                        </li>
+                        <li>
+                           <strong>Geometry Shader</strong>
+                           <p>
+                              Předá veškeré atributy vrcholů a ID trojúhelníku do fragment shaderu. (V každé invokaci FS
+                              jsou tak přístupné
+                              atributy všech vrcholů trojúhelníku.)
+                           </p>
+                        </li>
+                        <li>
+                           <strong>Fragment Shader</strong>
+                           <p>
+                              Úkolem FS v tomhle průchodu je zapsat do Frame Bufferu ID trojúhelníku pro daný pixel a
+                              uložit data trojúhelníku do dalšího bufferu.
+                              (Triangle Buffer.)
+                           </p>
+                           <p>
+                              Cílem je co nejvíce snížit redundanci uložení dat trojúhelníku.
+                              V ideálním případě by se každý viditelný trojúhelník měl do Triangle Bufferu uložit jenom
+                              jednou.
+                           </p>
+                           <p>
+                              Proto je nutné zvolit jednu invokaci FS která data trojúhelníku uloží.
+                              Ostatní invokace by pak měli jen zapsat do Frame Bufferu již známou adresu v Triangle
+                              Bufferu pro daný pixel.
+                              Na to se ve FS používá vyrovnávací paměť, realizovaná
+                              pomocí hašovácí
+                              tabulky fixní velikosti, poskytující mapování mezi ID trojúhelníku a adresou v Triangle
+                              Bufferu.
+                              Pomocí atomických operací se invokace FS "soupeří" o možnost zapsat data trojúhelníku.
+                              "Nejrychlejší" invokace zamkne přístup k buňce hashovací tabulky,
+                              alokuje adresu (inkrementaci atomického čítače), zapíše ji do tabulky, a následně tabulku
+                              odemkne a uloží data trojúhelníku.
+                           </p>
+                        </li>
+                     </ol>
+                  </li>
+                  <li>
+                     <strong>Partial Derivatives Compute Pass</strong>
+                     <p>
+                        V daném průchodu se pro každý pixel pomocí Compute Shaderu vypočítají parciální derivace
+                        atributů trojúhelníku.
+                        Data v Triangle Bufferu jsou přepsána. CS pro tyto účely využívá stejný binding location pro 2
+                        různé definice
+                        Shader Storage Bufferu. První definice je pro čtení dat trojúhelníku, druhá pro zápis.
+                     </p>
+                     <p>
+                        Pro každý atribut trojúhelníku se vypočítá rychlost změny hodnoty
+                        tohoto atributu se změnou pozice v osách X a Y v prostoru obrazovky (parciální derivace) a taky
+                        hodnota tohoto atributu v bodě
+                        <code>(0,0)</code>.
+                     </p>
+                     <p>
+                        Přidá se i další atribut uložený stejným způsobem - <code>1/w</code>.
+                        Tato hodnota se v posledním průchodu využívá pro perspektivně korektní interpolaci atributů a
+                        pro
+                        získání souřadnice Z pro daný fragment.
+                     </p>
+                  </li>
+                  <li>
+                     <strong>Shading Pass</strong>
+                     <p>V posledním průchodu se kreslí trojúhelník zakrývající celou obrazovku.
+                        Ve fragmentovém shaderu jsou na základě uloženého
+                        v visibility bufferu ID trojúhelníku načteny předpocítané parciální derivace, a na jejich
+                        základě vypočítána
+                        interpolovaná hodnota atributu pro daný pixel. Následně je vyhodnoceno osvětlení.
+                     </p>
+                  </li>
+               </ol>
+               <p>
+                  Hlavním cílem Deferred Attribute Interpolation Shading je snížení paměťových
+                  nároků oproti využití klasického G-Bufferu. Jako motivaci autoři článku uvádí využití techniky
+                  MSAA pro snížení aliasu. Moje implementace proto obsahuje i implementaci MSAA.
+                  V základním algoritmu odloženého stínování využitém pro porovnání je technika využita taky.
+                  V obou případech se používá postup s využitím coverage masky pro fragment, popsaný v původně
+                  publikovaném článku.
+               </p>
+
+               <h4>Ovládání</h4>
+               <ul>
+                  <li><strong>LMB + Mouse</strong> - rotace scény</li>
+                  <li><strong>Šipky</strong> - posun scény</li>
+               </ul>
+               <p>
+                  Ostatní ovládání je realizováno pomocí GUI.
+               </p>
+
+               <h4>Výsledky</h4>
+               Testování probíhalo na GPU Nvidia RTX 2080Ti.
+               DAIS je ve mnoha případech pomalejší než klasická technika odloženého stínování.
+               Technika je velmi citlivá na počty viditelných trojúhelníků kvůli synchronizaci invokací
+               FS v Geometry Passu a zápisu do Triangle Bufferu.
+
+               V případech, kdy není DAIS limitován velkým počtem viditelných trojúhelníků,
+               je evidentní výhoda postupu při využití MSAA - díky snížené redundanci uložení dat trojúhelníků
+               velikost bufferu viditelnosti (analog G-Bufferu) roste se zvýšením
+               počtu pixelů na sample mnohem pomaleji.
+
+               Při využití klasického odloženého stínování s x4 vs x8 MSAA FPS klesá o přibližně 50%.
+               Při využití DAIS je tento pokles mnohem menší, přibližně ~20%.
+               Je ale nutné brát v úvahu, že technika MSAA již není populární nejen kvůli výpočetní náročnosti,
+               ale i protože neumožňuje antialiasing fragmentových efektů. Velká část dnešních real
+               time grafických aplikací proto spoléhá na TAA a příbuzné techniky (např. DLSS).
+               DAIS má ale výhodu jenom při využití metod využívajících multisampling, v ostatních případech je mnohem
+               výhodnější
+               použití jiných variant odloženého stínování. Praktická využitelnost metody je proto v současné době
+               nízká.
+
+               <h4>Download</h4>
+               <ul>
+                  <!-- TODO -->
+                  <li><a href="https://cent.felk.cvut.cz/courses/PGR2/code.zip">Zdrojové kódy</a></li>
+                  <li><a href="https://cent.felk.cvut.cz/courses/PGR2/exe.zip">Spustitenná verze</a>(Vyžaduje OpenGL
+                     x.x)</li>
+                  <li><a href="https://cent.felk.cvut.cz/courses/PGR2/doc/html/index.html">Dokumentate(Doxygen)</a></li>
+               </ul>
+
+               <h4>Screenshoty s výsledky meření</h4>
+               <h5>Deferred Shading</h5>
+               <div class="screenshots">
+                  <img src="img/0.png" alt="Screenshot 1">
+                  <img src="img/1.png" alt="Screenshot 2">
+                  <img src="img/2.png" alt="Screenshot 3">
+               </div>
+
+               <h5>DAIS</h5>
+               <div class="screenshots">
+                  <img src="img/3.png" alt="Screenshot 1">
+                  <img src="img/4.png" alt="Screenshot 2">
+                  <img src="img/5.png" alt="Screenshot 3">
+               </div>
+
+
+
+            </div>
+         </div>
+      </div>
+
+      <div class="footer">
+         <hr class="hidden">
+
+         <div class="footer_inner">Poslední aktualizace:
+            <!-- #BeginDate format:Ge1 -->12.02.2024<!-- #EndDate -->
+         </div>
+      </div>
+   </div>
+
+</body>
+
+</html>
